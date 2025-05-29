@@ -13,9 +13,9 @@
 
 \addbibresource{mss.bib}
 
-\newcommand{\authorname}{N. E. Davis}
-\newcommand{\authorpatp}{\patp{lagrev-nocfep}}
-\newcommand{\affiliation}{Zorp Corp}
+\newcommand{\authorname}{N. E. Davis \& Sam Parker}
+\newcommand{\authorpatp}{\patp{lagrev-nocfep} \& \patp{zod}}
+\newcommand{\affiliation}{Zorp Corp \& —}
 
 %  Make first page footer:
 \fancypagestyle{firststyle}{%
@@ -68,7 +68,7 @@ There are three basic ways to encode a noun as an atom:
 \noindent{}
 Each of these
 
-\subsection{\texttt{++jel}, the Na\"{i}ve Encoding}
+\section{\texttt{++jel}, the Na\"{i}ve Encoding}
 
 The simplest way to encode a noun as a binary tree in an atom (byte array) without compression is to utilize bits to mark atom (\texttt{0}) vs. cell (\texttt{1}), the length of the atom in unary of \texttt{1}s terminated by \texttt{0}, and the actual value.  (Since the leading zeros are stripped, they may need to be added back in.)  This is in least-significant \emph{byte} (\textsc{lsb}) order, so you should read the written atom starting from the \emph{right}.
 
@@ -156,7 +156,7 @@ Our code implementation for \texttt{++jel} is as follows:
 
 Note that \texttt{l} is not the length of an atom in unary, but the length of the encoded noun in binary.
 
-\subsection{\texttt{++jam}, the Practical Serialization}
+\section{\texttt{++jam}, the Practical Serialization}
 
 The \texttt{++jel} algorithm has two flaws:  it is subject to collisions XXX
 and it is verbose.  \texttt{++jam} will improve on this by altering the \textsc{rle} slightly and
@@ -194,3 +194,21 @@ The new \textsc{rle} calculation is to post the number plus one in binary rather
   =+  d=(mat u.c)
   [(add 2 p.d) (mix 3 (lsh [0 2] q.d)) m]
 \end{lstlisting}
+
+
+\subsection{\texttt{newt} Encoding}
+
+“Newt” encoding is a runtime-oriented extension of \texttt{++jam}-based noun serialization which adds a short identifying header in case of future changes to the serialization format.  A version number (currently as a single bit) precedes a serialization length followed by the \texttt{++jam} serialization of the noun.  The version number is currently always \texttt{0b0}, but this may change in the future.
+
+\begin{lstlisting}[style=listingcode]
+  V.LLLL.JJJJ.JJJJ.JJJJ.JJJJ.JJJJ.JJJJ
+\end{lstlisting}
+
+\noindent{}
+where \texttt{V} is the version number, \texttt{L} is the total length of the noun in bytes, and \texttt{J} is the \texttt{++jam} serialization of the noun.
+
+Runtime communications vanes like \texttt{\%khan} and \texttt{\%lick} utilize this encoding locally.  It is exclusively used as a Unix affordance at the current time.
+
+\section{\texttt{+\$bulk}, the Directed Graph Encoding}
+
+\end{document}
