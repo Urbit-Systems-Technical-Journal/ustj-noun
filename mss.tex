@@ -2,11 +2,20 @@
 
 \usepackage{ustj}
 
+\usepackage{tikz}
+\newcommand{\bit}[1]{%
+  \tikz[baseline=(char.base)]{%
+    \node[shape=rectangle, draw, rounded corners=1pt, inner sep=1pt, minimum width=6pt, minimum height=6pt] (char) {#1};
+  }%
+}
+
+\setcounter{tocdepth}{2}
+
 \addbibresource{mss.bib}
 
-\newcommand{\authorname}{Ernest P. Worrell}
-\newcommand{\authorpatp}{\patp{sampel-palnet}}
-\newcommand{\affiliation}{Kamp Kikakee}
+\newcommand{\authorname}{N. E. Davis}
+\newcommand{\authorpatp}{\patp{lagrev-nocfep}}
+\newcommand{\affiliation}{Zorp Corp}
 
 %  Make first page footer:
 \fancypagestyle{firststyle}{%
@@ -14,8 +23,8 @@
 \fancyhead{}
 \fancyfoot[L]{{\footnotesize
               %% We toggle between these:
-              Manuscript submitted for review.\\
-              % {\it Urbit Systems Technical Journal} I:1 (2024):  1–3. \\
+              % Manuscript submitted for review.\\
+              {\it Urbit Systems Technical Journal} II:1 (2025):  1–46. \\
               ~ \\
               Address author correspondence to \authorpatp.
               }}
@@ -23,11 +32,11 @@
 %  Arrange subsequent pages:
 \fancyhf{}
 \fancyhead[LE]{{\urbitfont Urbit Systems Technical Journal}}
-\fancyhead[RO]{Floating-Point Arithmetic on Deterministic Systems}
+\fancyhead[RO]{Representing Nouns as Byte Arrays}
 \fancyfoot[LE,RO]{\thepage}
 
 %%MANUSCRIPT
-\title{Ernest Goes to Mars:  An Enquiry into the Foundations of Artificial Stupidity}
+\title{Representing Nouns as Byte Arrays}
 \author{\authorname~\authorpatp \\ \affiliation}
 \date{}
 
@@ -37,7 +46,7 @@
 \thispagestyle{firststyle}
 
 \begin{abstract}
-In this groundbreaking paper, we embark on a cosmic journey with the renowned character Ernest P. Worrell as he ventures into the unexplored realm of Martian computing. Drawing inspiration from Ernest's comically ingenious encounters with everyday challenges, we investigate the foundations of what we term "Artificial Stupidity." As Ernest grapples with Martian technology, we delve into the intricacies of programming errors, algorithmic missteps, and the curious phenomena that arise when human-like intelligence meets extraterrestrial computing systems. Our analysis sheds light on the unexpected intersections between humor, artificial intelligence, and the cosmic absurdity of Martian software. Join us in this interplanetary exploration as we unravel the mysteries of Artificial Stupidity through the lens of Ernest's interstellar escapades.
+  Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes the two principal conventions for representing nouns in slightly compressed form as byte arrays, as well as introduces a new na\"ive run-length encoding for educational purposes.
 \end{abstract}
 
 % We will adjust page numbering in final editing.
@@ -46,72 +55,142 @@ In this groundbreaking paper, we embark on a cosmic journey with the renowned ch
 
 \tableofcontents
 
-\section{Introduction}
+Nock deals in nouns and does not know about bits or memory.  However, a Nock interpreter (runtime) must deal with these practicalities.  In other words, we must have a way of writing down an abstract binary tree (consisting of cells/pairs and atoms) as an actual, physical array of bits in memory.
 
-Introduce the scope of your article and investigation.
-
-\section{Background and Literature}
-
-Exposite the relevant background and literature.
+There are three basic ways to encode a noun as an atom:
 
 \begin{enumerate}
-  \item  Prefer to \texttt{enumerate}.
-  \item  It is easier to refer to than \texttt{itemize}.
+  \item  \texttt{++jel}.  A na\"{i}ve encoding similar to \texttt{++jam} but without references.  Introduced in this article.
+  \item  \texttt{++jam}.  A run-length encoding including references to repeated values.  The standard serialization for Urbit/Arvo.
+  \item  \texttt{++bulk}/\texttt{++silo}.  A directed graph encoding with references.  The standard serialization for Nockchain.
 \end{enumerate}
 
-\noindent
-Mark \texttt{\textbackslash noindent} in paragraphs that continue the thought of an \texttt{\textbackslash enumerate} block.
+\noindent{}
+Each of these
 
-\section{Urbit's Implementation}
+\subsection{\texttt{++jel}, the Na\"{i}ve Encoding}
 
-Oftentimes you will then turn to exploring how Urbit or closely related systems like Nockchain have approached or considered a problem.  You can look at a PR like \citetpr{urbit_urbit_6891}.
+The simplest way to encode a noun as a binary tree in an atom (byte array) without compression is to utilize bits to mark atom (\texttt{0}) vs. cell (\texttt{1}), the length of the atom in unary of \texttt{1}s terminated by \texttt{0}, and the actual value.  (Since the leading zeros are stripped, they may need to be added back in.)  This is in least-significant \emph{byte} (\textsc{lsb}) order, so you should read the written atom starting from the \emph{right}.
 
-\lstset{language=C}
-\begin{lstlisting}
-#include <stdio.h>
+Thus the atom \texttt{0b0} would simply be encoded as:
 
-double compute(float a, float b) {
-    return a * a + b * b;
-}
-
-int main() {
-    float x = 2.5;
-    float y = 3.7;
-
-    double result = compute(x, y);
-
-    printf("Result: %lf\n", result);
-
-    return 0;
-}
+\begin{lstlisting}[style=listingcode]
+:: 0x0 = 0 for atom; 1 for length (special case);
+::       0 for end of length; 0 for value
+> `@ub`(jel 0b0)
+0b10
 \end{lstlisting}
 
-\noindent
-That code snippet was part of the text, and not a standalone entity to which we make separate repeated reference.
+\noindent{}
+interpreted as (rightmost, LSB) \texttt{0} for atom, run length of \texttt{1}, and value \texttt{0} (stripped).  I.e., \texttt{0b010} or
 
-\begin{figure}
-  \begin{lstlisting}[language=Python, caption={Example Python Code}, label={lst:example}]
-  def hello_world():
-      print("Hello, world!")
-  \end{lstlisting}
-\end{figure}
+{
+\centering
+$\leftarrow$ \\
+\bit{0} \bit{1} \bit{0}
+}
 
-Refer to the code listing: Listing~\ref{lst:example}.  (Note that we don't suppress indentation since it's a float.)
+Other values include:
 
+\begin{lstlisting}[style=listingcode]
+:: 0x1 = 0 for atom; 1 for length;
+::       0 for end of length; 1 for value
+> `@ub`(jel 0b1)
+0b1010
 
-\section{A Wild Ernest Appears}
+:: [0x0 0x1] = 1 for cell; zero, then one
+> `@ub`(jel [@0b0@ 0b1])
+0b1.010@0.010@1
 
-You can have as many sections as make sense.  Only sections and subsections appear in the table of contents.
+:: [0x1 0x0] = 1 for cell; one, then zero
+> `@ub`(jel [@0b0@ 0b1])
+0b10@1.010@1
 
-\section{Conclusion}
+:: 0x2 = 0 for atom; 2 for length;
+::       0 for end of length; 2 for value
+> `@ub`(jel 0b10)
+0b10.0111
 
-To summarize, why did you write it?  Why do we care?  What impact should it have on Urbit development?
+:: 0xff
+> `@ub`(jel 0xff)
+0b11.1111.1101.1111.1110
 
-Your bibliography is a separate BibTeX file.  We use the \texttt{plainnat} bibliography style.  You can use \texttt{natbib} citation commands like \texttt{\textbackslash citep\{wikipedia\}} for parenthesized references.  Use \texttt{\textbackslash citet\{wikipedia\}} for inline references.  You can also use \texttt{\textbackslash citeauthor\{wikipedia\}} for the principal author's name.
+:: [[0x0 0x1] [0x2 0x3]]
+> `@ub`(jel [@0b0@ 0b1])
+0b10@1.010@1
+\end{lstlisting}
 
-``You can use traditional TeX---or LaTeX---representations'' \citep{Varney1987}.
+Our code implementation for \texttt{++jel} is as follows:
 
-“Or you can use fancy quotes—and symbols.”
+\begin{lstlisting}[style=listingcode]
+!:  |%
+++  jel
+  =jel !:  |=  a=*
+  ^-  @
+  =+  l=0
+  =+  b=0
+  =<  -
+  |-
+  ?^  a
+    =+  lv=$(a -.a)
+    =+  rv=$(a +.a)
+    =+  [c l]=(mash rv lv)
+    [(con (lsh [0 1] c) 0b1) +(l)]
+  ?:  =(0 a)  [0b10 4]
+  :: need another mash in here for unary length
+  =+  [c l]=(mash [a l] [b +((met 0 b))])
+  [(con (lsh [0 1] c) 0b0) +(l)]
+:: length of atom in unary
+++  len
+  |=  a=@
+  ^-  @
+  (fil 0 (met 0 a) 0b1)
+:: mash two atoms together
+++  mash
+  |=  [a=[p=@ l=@] b=[p=@ l=@]]
+  ^-  [c=@ l=@]
+  :-  (con (lsh [0 l.b] p.a) p.b)
+  (add l.a l.b)
+--
+\end{lstlisting}
 
-\printbibliography
-\end{document}
+Note that \texttt{l} is not the length of an atom in unary, but the length of the encoded noun in binary.
+
+\subsection{\texttt{++jam}, the Practical Serialization}
+
+The \texttt{++jel} algorithm has two flaws:  it is subject to collisions XXX
+and it is verbose.  \texttt{++jam} will improve on this by altering the \textsc{rle} slightly and
+
+special-cases 0
+
+The new \textsc{rle} calculation is to post the number plus one in binary rather than unary (e.g., for \texttt{} the length would be \texttt{0b010}).
+
+(Since there is a value less significant than the length, the leading zero is not lost but serves as a divider.)
+
+\begin{lstlisting}[style=listingcode]
+++  jam
+  ~/  %jam
+  |=  a=*
+  ^-  @
+  =+  b=0
+  =+  m=`(map * @)`~
+  =<  q
+  |-  ^-  [p=@ q=@ r=(map * @)]
+  =+  c=(~(get by m) a)
+  ?~  c
+    =>  .(m (~(put by m) a b))
+    ?:  ?=(@ a)
+      =+  d=(mat a)
+      [(add 1 p.d) (lsh 0 q.d) m]
+    =>  .(b (add 2 b))
+    =+  d=$(a -.a)
+    =+  e=$(a +.a, b (add b p.d), m r.d)
+    :+  (add 2 (add p.d p.e))
+      (mix 1 (lsh [0 2] (cat 0 q.d q.e)))
+    r.e
+  ?:  ?&(?=(@ a) (lte (met 0 a) (met 0 u.c)))
+    =+  d=(mat a)
+    [(add 1 p.d) (lsh 0 q.d) m]
+  =+  d=(mat u.c)
+  [(add 2 p.d) (mix 3 (lsh [0 2] q.d)) m]
+\end{lstlisting}
