@@ -13,9 +13,9 @@
 
 \addbibresource{mss.bib}
 
-\newcommand{\authorname}{N. E. Davis \& Sam Parker}
-\newcommand{\authorpatp}{\patp{lagrev-nocfep} \& \patp{zod}}
-\newcommand{\affiliation}{Zorp Corp \& —}
+\newcommand{\authorname}{N. E. Davis, Brian Klatt, \& Sam Parker}
+\newcommand{\authorpatp}{\patp{lagrev-nocfep}, \patp{zod}, \& \patp{zod}}
+\newcommand{\affiliation}{Zorp Corp, Zorp Corp, \& —}
 
 %  Make first page footer:
 \fancypagestyle{firststyle}{%
@@ -23,21 +23,22 @@
 \fancyhead{}
 \fancyfoot[L]{{\footnotesize
               %% We toggle between these:
-              % Manuscript submitted for review.\\
-              {\it Urbit Systems Technical Journal} II:1 (2025):  1–46. \\
-              ~ \\
-              Address author correspondence to \authorpatp.
+              Manuscript submitted for review.\\
+              % {\it Urbit Systems Technical Journal} II:2 (2025):  1–46. \\
+              % ~ \\
+              % Address author correspondence to \authorpatp.
               }}
 }
 %  Arrange subsequent pages:
 \fancyhf{}
 \fancyhead[LE]{{\urbitfont Urbit Systems Technical Journal}}
-\fancyhead[RO]{Representing Nouns as Byte Arrays}
+\fancyhead[RO]{Serializing Nouns}
 \fancyfoot[LE,RO]{\thepage}
 
 %%MANUSCRIPT
-\title{Representing Nouns as Byte Arrays}
-\author{\authorname~\authorpatp \\ \affiliation}
+\title{Serializing Nouns}
+\author{N.\ E.\ Davis \patp{lagrev-nocfep}, Brian Klatt \patp{zod},\thanks{Brian Klatt contributed the description of \texttt{++jam}.} \\ \& Sam Parker \patp{zod}\thanks{Sam Parker contributed the description of \texttt{++bulk}.} \\ \affiliation}
+% TODO Brian Klatt credit
 \date{}
 
 \begin{document}
@@ -46,7 +47,7 @@
 \thispagestyle{firststyle}
 
 \begin{abstract}
-  Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes the two principal conventions for representing nouns in slightly compressed form as byte arrays, as well as introduces a new na\"ive run-length encoding for educational purposes.
+Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes and compares the two principal conventions for representing nouns in slightly compressed form as byte arrays, as well as introduces variant encodings for educational purposes.
 \end{abstract}
 
 % We will adjust page numbering in final editing.
@@ -55,22 +56,23 @@
 
 \tableofcontents
 
-Nock deals in nouns and does not know about bits or memory.  However, a Nock interpreter (runtime) must deal with these practicalities.  In other words, we must have a way of writing down an abstract binary tree (consisting of cells/pairs and atoms) as an actual, physical array of bits in memory.
+\section{Introduction}
 
-There are three basic ways to encode a noun as an atom:
+The Nock combinator calculus deals in nouns and does not know about bit encodings or memory layouts.  A Nock interpreter (runtime) must, however, deal with the practicalities.  In other words, there must be a way of writing down an abstract binary tree (consisting of cells/pairs and atoms) as an actual, physical array of bits in memory.  Every possible Nock noun can be represented as a finite sequence of bytes (an atom), and there are multiple ways to do so.\footnote{The converse is not true:  not every atom represents a valid deserialization or conversion from a graph encoding.}
+
+A noun serialization strategy is rather like a Gödel numbering in that it systematically encodes a mathematical object (a noun) as a number (an atom).  Unlike Gödel numbering, which classically serially encodes the symbols of mathematical statements, noun serialization encodes a binary tree structure.\footnote{This also echoes the way that S-expressions are encoded in Lisp.}  Because a noun may be any atom---and atoms cannot have leading zeroes---both structure and value need to be unambiguously encoded and cannot be simply delimited (as by a \texttt{0} bit or similar).  There are two basic strategies to encode a noun as an atom:
 
 \begin{enumerate}
-  \item  \texttt{++jel}.  A na\"{i}ve encoding similar to \texttt{++jam} but without references.  Introduced in this article.
-  \item  \texttt{++jam}.  A run-length encoding including references to repeated values.  The standard serialization for Urbit/Arvo.
-  \item  \texttt{++bulk}/\texttt{++silo}.  A directed graph encoding with references.  The standard serialization for Nockchain.
+  \item  Run-length serialization, with or without references.
+  \item  Directed graph serialization, depending on a reentrant graph encoding.
 \end{enumerate}
 
-\noindent{}
-Each of these
+\noindent
+Both of these embody a tradeoff between simplicity, size, and speed.  In this article, we describe both of these strategies and some new variants which offer possible advantages.
 
-\section{\texttt{++jel}, the Na\"{i}ve Encoding}
+\section{Na\"{i}ve Serialization}
 
-The simplest way to encode a noun as a binary tree in an atom (byte array) without compression is to utilize bits to mark atom (\texttt{0}) vs. cell (\texttt{1}), the length of the atom in unary of \texttt{1}s terminated by \texttt{0}, and the actual value.  (Since the leading zeros are stripped, they may need to be added back in.)  This is in least-significant \emph{byte} (\textsc{lsb}) order, so you should read the written atom starting from the \emph{right}.
+The simplest way to encode a noun as a binary tree in an atom (byte array) without compression is to utilize bits to mark atom (\texttt{0}) vs. cell (\texttt{1}), the length of the atom in unary of \texttt{1}s terminated by \texttt{0}, and the actual value.  (Since the leading zeros are stripped, they may need to be added back in.)  This is in least-significant \emph{byte} (\textsc{lsb}) order, so you should read the written atom starting from the \emph{right} in binary.
 
 Thus the atom \texttt{0b0} would simply be encoded as:
 
@@ -81,7 +83,7 @@ Thus the atom \texttt{0b0} would simply be encoded as:
 0b10
 \end{lstlisting}
 
-\noindent{}
+\noindent
 interpreted as (rightmost, LSB) \texttt{0} for atom, run length of \texttt{1}, and value \texttt{0} (stripped).  I.e., \texttt{0b010} or
 
 {
@@ -156,10 +158,14 @@ Our code implementation for \texttt{++jel} is as follows:
 
 Note that \texttt{l} is not the length of an atom in unary, but the length of the encoded noun in binary.
 
-\section{\texttt{++jam}, the Practical Serialization}
+\section{Practical Serialization}
 
-The \texttt{++jel} algorithm has two flaws:  it is subject to collisions XXX
-and it is verbose.  \texttt{++jam} will improve on this by altering the \textsc{rle} slightly and
+Whatever the pedagogical advantages of \texttt{++jel}, the algorithm has practical flaws:  it is subject to collisions XXX
+and it is verbose.\footnote{Note the claim of \patp{dozreg-toplud}, p.~TODO of this issue, that an operational Arvo instance may have up to $1.66 \times 10^{21}$ nouns, reduced by structural sharing.}  \texttt{++jam} improves the basic strategy by altering the \textsc{rle} algorithm slightly and supporting internal references for noun subtrees that have already been encoded.
+
+\texttt{++jam} converts a noun into a buffer and deduplicates repeated subtrees.  It walks subtrees and encodes each in a way that allows for efficient storage and retrieval, while also permitting references to previously encoded values.
+
+- get Bryan notes
 
 special-cases 0
 
@@ -195,20 +201,207 @@ The new \textsc{rle} calculation is to post the number plus one in binary rather
   [(add 2 p.d) (mix 3 (lsh [0 2] q.d)) m]
 \end{lstlisting}
 
+A Python example of \texttt{++jam} is included in Appendix~A.
 
 \subsection{\texttt{newt} Encoding}
 
-“Newt” encoding is a runtime-oriented extension of \texttt{++jam}-based noun serialization which adds a short identifying header in case of future changes to the serialization format.  A version number (currently as a single bit) precedes a serialization length followed by the \texttt{++jam} serialization of the noun.  The version number is currently always \texttt{0b0}, but this may change in the future.
+\sloppy
+“Newt” encoding is a runtime-oriented extension of \texttt{++jam}\-based noun serialization which adds a short identifying header in case of future changes to the serialization format.  A \mbox{version} number (currently a single bit) precedes a \textsc{rle} serialization length followed by the \texttt{++jam} serialization of the noun.  The version number is currently \texttt{0b0}.
 
 \begin{lstlisting}[style=listingcode]
   V.LLLL.JJJJ.JJJJ.JJJJ.JJJJ.JJJJ.JJJJ
 \end{lstlisting}
 
-\noindent{}
+\noindent
 where \texttt{V} is the version number, \texttt{L} is the total length of the noun in bytes, and \texttt{J} is the \texttt{++jam} serialization of the noun.
 
-Runtime communications vanes like \texttt{\%khan} and \texttt{\%lick} utilize this encoding locally.  It is exclusively used as a Unix affordance at the current time.
+Runtime communications vanes like \texttt{\%khan} and \texttt{\%lick} utilize this encoding locally.  It is exclusively used as a host OS runtime affordance at the current time.
 
-\section{\texttt{+\$bulk}, the Directed Graph Encoding}
+\section{Directed Graph Encoding}
+
+A directed graph encoding has been independently proposed twice, once by Tlon in the original Hoon codebase as a \lstinline[style=inlinecode]{+$silo} encoding and once by Sam Parker as the \lstinline[style=inlinecode]{++bulk} encoding.
+
+
+\section{Aligned Serialization}
+
+One of the advantages of \texttt{++jam} is its compactness.  However, this comes at the cost of speed, since bit-level operations are required to \texttt{++cue} the noun back from its serialized form.  If a slightly larger size is acceptable, a byte-aligned serialization could facilitate certain kinds of external inspection without requiring deserialization.  (For instance, a byte-aligned head tag could be read for a rapid decision without needing to \texttt{++cue} the entire noun.)
+
+We propose a strategy to modify \texttt{++jam} to align to bytes by padding the length of entries to the nearest byte boundary and marking the distance with a clever binary scheme rather than simply unary.  This approach, called \texttt{++honey}, aims to balance compactness and speed for certain use cases while retaining a large degree of conceptual backwards compatibility.  (The change in byte alignment of course breaks strict compatibility.)
+
+There are two fundamental issues for byte alignment:  atoms and lengths.  Atoms can be padded with leading zeros to the nearest byte boundary without changing their value.  Lengths, however, require a new encoding scheme to compensate for the adjustment in expected bit widths.  %We propose a variable-length encoding for lengths that uses the high bit of each byte to indicate whether more bytes follow.  The remaining seven bits of each byte contribute to the length value.  This allows for efficient representation of lengths while maintaining byte alignment.
+
+\section{Benchmarks}
+
+\section{Conclusion}
+
+\section*{Appendix A:  Python \texttt{++jam}/\texttt{++cue}}
+
+The following is a simple Python implementation of \texttt{++jam} serialization drawn from Urbit’s auxiliary \texttt{pynoun} library.
+
+\begin{lstlisting}[style=listingcode_python]
+from bitstring import BitArray
+noun = int | Cell
+# The Cell class represents an ordered pair of two nouns.
+
+def jam_to_stream(n: noun, out: BitArray):
+    """jam but put the bits into a stream
+
+    >>> s = BitArray()
+    >>> jam_to_stream(Cell(0,0), s)
+    >>> s
+    BitArray('0b100101')
+    """
+
+    cur = 0
+    refs = {}
+
+    def bit(b: bool):
+        nonlocal cur
+        out.append([b])
+        cur += 1
+
+    def zero():
+        bit(False)
+
+    def one():
+        bit(True)
+
+    def bits(num: int, count: int):
+        nonlocal cur
+        for i in range(0, count):
+            out.append([(num & (1 << i)) != 0])
+        cur += count
+
+    def save(a: noun):
+        refs[a] = cur
+
+    def mat(i: int):
+        if 0 == i:
+            one()
+        else:
+            a = i.bit_length()
+            b = a.bit_length()
+            above = b + 1
+            below = b - 1
+            bits(1 << b, above)
+            bits(a & ((1 << below) - 1), below)
+            bits(i, a)
+
+    def back(ref: int):
+        one()
+        one()
+        mat(ref)
+
+    def r(a: noun):
+        dupe = refs.get(a)
+        if deep(a):
+            if dupe:
+                back(dupe)
+            else:
+                save(a)
+                one()
+                zero()
+                r(a.head)
+                r(a.tail)
+        elif dupe:
+            isize = a.bit_length()
+            dsize = dupe.bit_length()
+            if isize < dsize:
+                zero()
+                mat(a)
+            else:
+                back(dupe)
+        else:
+            save(a)
+            zero()
+            mat(a)
+    r(n)
+
+def jam(n: noun):
+    """urbit serialization: * -> @
+
+    >>> jam(0)
+    2
+    >>> jam(Cell(0,0))
+    41
+    >>> jam(Cell(Cell(1234567890987654321, \\
+    ...               1234567890987654321), \\
+    ...          Cell(1234567890987654321, \\
+    ...               1234567890987654321)))
+    22840095095806892874257389573
+    """
+
+    out = BitArray()
+    jam_to_stream(n, out)
+    return read_int(len(out), out)
+
+def cue_from_stream(s: BitArray):
+    """cue but read the bits from a stream
+
+    >>> s = BitArray('0b01')
+    >>> cue_from_stream(s)
+    0
+    """
+
+    refs = {}
+    cur = 0
+    position = 0
+
+    def bits(n: int):
+        nonlocal cur, position
+        cur += n
+        result = 0
+        for i in range(n):
+            result |= (1 if s[position] else 0) << i
+            position += 1
+        return result
+
+    def one():
+        nonlocal cur, position
+        cur += 1
+        bit = s[position]
+        position += 1
+        return bit
+    
+    def rub():
+        z = 0
+        while not one():
+            z += 1
+        if 0 == z:
+            return 0
+        below = z - 1
+        lbits = bits(below)
+        bex = 1 << below
+        return bits(bex ^ lbits)
+
+    def r(start: int):
+        ret = None
+        if one():
+            if one():
+                ret = refs[rub()]
+            else:
+                hed = r(cur)
+                tal = r(cur)
+                ret = Cell(hed, tal)
+        else:
+            ret = rub()
+        refs[start] = ret
+        return ret
+    return r(cur)
+
+def cue(i: int):
+    """urbit deserialization: @ -> *
+
+    >>> str(cue(22840095095806892874257389573))
+    '[[1234567890987654321 1234567890987654321]
+      1234567890987654321 1234567890987654321]'
+    """
+
+    bits = BitArray()
+    while i > 0:
+        bits.append([i & 1 == 1])
+        i >>= 1
+    return cue_from_stream(bits)
+\end{lstlisting}
 
 \end{document}

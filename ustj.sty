@@ -15,7 +15,7 @@
 \renewcommand{\setmonofont}{\monofont}
 \renewcommand{\texttt}[1]{{\monofont #1}}
 % Define a new font family for small caps with FakeSlant
-\newfontfamily\slantedsmallcapsfont{Linux Libertine O}[
+\newfontfamily\slantedsmallcapsfont{Libertinus Serif}[
     FakeSlant = 0.1 % Adjust the slant amount as needed
 ]
 % Redefine \textsc to make small caps 25% larger
@@ -25,6 +25,7 @@
 
 \usepackage{listings}
 \usepackage[dvipsnames]{xcolor}
+\definecolor{darkgray}{rgb}{0.25, 0.25, 0.25}
 \lstdefinelanguage{Hoon}
 {
   alsoletter={
@@ -36,7 +37,7 @@
     \%_, \%., \%^, \%+, \%-, \%:, \%~, \%*, \%=,
     :_, :^, :+, :-, :~, :*,
     .+, .*, .=, .?, .^,
-    --, ==,
+    --,
     ^|, ^., ^-, ^+, ^\&, ^~, ^=, ^?, ^*, ^:,
     ~|, ~\$, ~_, ~\%, ~/, ~<, ~>, ~+, ~\&, ~?, ~=, ~!,
     ;:, ;/, ;<, ;~, ;;, ;+, ;*, ;=,
@@ -90,7 +91,7 @@
 \lstdefinestyle{listingblock}{
     language=Hoon,
     basicstyle=\setmonofont\small,
-    numbers=left, numberstyle=\tiny, stepnumber=5, firstnumber=1, numberfirstline=false,
+    % numbers=left, numberstyle=\tiny, stepnumber=5, firstnumber=1, numberfirstline=false,
     tabsize=2,
     columns=fixed,
     showstringspaces=false,
@@ -105,7 +106,7 @@
     language=Python,
     basicstyle=\setmonofont\small,
     numbers=left, numberstyle=\tiny, stepnumber=5, firstnumber=1, numberfirstline=false,
-    frame=tb,
+    % frame=tb,
     tabsize=2,
     columns=fixed,
     showstringspaces=false,
