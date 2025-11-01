@@ -68,9 +68,99 @@ A noun serialization strategy is rather like a Gödel numbering in that it syste
 \end{enumerate}
 
 \noindent
-Both of these embody a tradeoff between simplicity, size, and speed.  In this article, we describe both of these strategies and some new variants which offer possible advantages.
+Both of these embody a tradeoff between simplicity, size, and speed.  Below, we describe both of these strategies and some new variants which offer possible advantages.  Reversible noun encoding is essential for Nock communication, both between Nock execution layers such as Vere and NockVM, and between the runtime and the host operating system.
 
 \section{Na\"{i}ve Serialization}
+
+A noun may be an atom or a cell, and so we first propose to label nodes by type, with \texttt{0} for atom and \texttt{1} for cell.
+
+\begin{figure}[ht]
+\centering
+\begin{subfigure}
+\centering
+\begin{tikzpicture}[
+  level 1/.style={sibling distance=40mm, line width=1pt},
+  level 2/.style={sibling distance=20mm, line width=1pt},
+  every node/.style={circle,draw, line width=1pt}
+  ]
+  \node {}
+    child { node {\texttt{a}} }
+    child { node {}
+      child { node {\texttt{b}} }
+      child { node {\texttt{c}} }
+    };
+\end{tikzpicture}
+\end{subfigure}
+\begin{subfigure}
+\centering
+\begin{tikzpicture}[
+  level 1/.style={sibling distance=40mm, line width=1pt},
+  level 2/.style={sibling distance=20mm, line width=1pt},
+  every node/.style={square,draw, line width=1pt}
+  ]
+  \node {1}
+    child { node {0} }
+    child { node {1}
+      child { node {0} }
+      child { node {0} }
+    };
+\end{tikzpicture}
+\end{subfigure}
+\caption{The noun \texttt{[a b c]} (the same as \texttt{[a [b c]]}) as a binary tree and its metadata labeling in the simplest scheme.}
+\label{fig:binary-tree}
+\end{figure}
+
+\noindent
+The noun in Figure~\ref{fig:binary-tree} is represented as a binary tree, where each node is labeled with its type (atom or cell) and its value (if applicable).  To serialize this noun, we can perform a pre-order traversal of the tree, recording the type and value of each node.  The serialized form would be (in \textsc{lsb} order):
+
+\begin{lstlisting}[style=listingcode]
+c 0 b 0 1 a 0 1
+\end{lstlisting}
+
+\noindent
+The issue, however, is that in decoding this bitstream we do not know where an atom value (such as \texttt{a}) ends.  After all, the point of serialization is to be able to deserialize the bitstream back into the original noun.  Thus we need a way to indicate the length of each atom.
+
+Let's augment this scheme by providing length information for each atom.  One basic idea is to include a string of \texttt{0} bits as the least-significant bits (\textsc{lsb}) of the atom which indicates the length of the atom in bits.  Since the atom could be zero, we also delimit the length with a \texttt{1} bit.  (See Table~\ref{tab:atom-encodings} for examples.)
+
+$$
+a = a_{\ell-1} a_{\ell-2} \ldots a_{1} a_{0}
+\xrightarrow[\textrm{encode}]{}
+\bar{a} = a_{\ell-1} a_{\ell-2} \ldots a_{1} a_{0} \; \mathtt{1} \; \mathtt{0}^{n}
+\textrm{,}
+$$
+
+\noindent
+where $\bar{a}$ is the encoded atom $a$ and $a$ has length $\ell$ bits.\footnote{We will use the overbar notation $\bar{a}$ throughout to notionally indicate the encoded form of $a$, regardless of the method used.}
+
+\begin{table}[ht]
+\centering
+\caption{Example atom encodings with length information appended as trailing zeros.}
+\label{tab:atom-encodings}
+\begin{tabular}{ l l r }
+  \textbf{Atom} & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form}} \\
+  \hline
+  \texttt{0b0} & 1 & \texttt{0b010} \\
+  \texttt{0b1} & 1 & \texttt{0b110} \\
+  \texttt{0b10} & 2 & \texttt{0b10100} \\
+  \texttt{0b11} & 2 & \texttt{0b11100} \\
+  \texttt{0b101} & 3 & \texttt{0b1011000} \\
+  \texttt{0b111} & 3 & \texttt{0b1111000} \\
+  \texttt{0x70} & 7 & \texttt{0b111000010000000} \\
+  \texttt{0xff} & 8 & \texttt{0b11111111100000000} \\
+\end{tabular}
+\end{table}
+
+For instance, the atom \texttt{0b101010} (decimal \texttt{42}) could be encoded as:
+
+\begin{lstlisting}[style=listingcode]
+:: atom 0x2a
+> `@ub`(gel 0b101010)
+0b101010
+:: cell [0x2a 0x3b]
+> `@ub`(gel [0b101010 0b111011])
+0b1.101010@0.111011
+\end{lstlisting}
+
 
 The simplest way to encode a noun as a binary tree in an atom (byte array) without compression is to utilize bits to mark atom (\texttt{0}) vs. cell (\texttt{1}), the length of the atom in unary of \texttt{1}s terminated by \texttt{0}, and the actual value.  (Since the leading zeros are stripped, they may need to be added back in.)  This is in least-significant \emph{byte} (\textsc{lsb}) order, so you should read the written atom starting from the \emph{right} in binary.
 
@@ -79,7 +169,7 @@ Thus the atom \texttt{0b0} would simply be encoded as:
 \begin{lstlisting}[style=listingcode]
 :: 0x0 = 0 for atom; 1 for length (special case);
 ::       0 for end of length; 0 for value
-> `@ub`(jel 0b0)
+> `@ub`(gel 0b0)
 0b10
 \end{lstlisting}
 
@@ -97,37 +187,37 @@ Other values include:
 \begin{lstlisting}[style=listingcode]
 :: 0x1 = 0 for atom; 1 for length;
 ::       0 for end of length; 1 for value
-> `@ub`(jel 0b1)
+> `@ub`(gel 0b1)
 0b1010
 
 :: [0x0 0x1] = 1 for cell; zero, then one
-> `@ub`(jel [@0b0@ 0b1])
+> `@ub`(gel [@0b0@ 0b1])
 0b1.010@0.010@1
 
 :: [0x1 0x0] = 1 for cell; one, then zero
-> `@ub`(jel [@0b0@ 0b1])
+> `@ub`(gel [@0b0@ 0b1])
 0b10@1.010@1
 
 :: 0x2 = 0 for atom; 2 for length;
 ::       0 for end of length; 2 for value
-> `@ub`(jel 0b10)
+> `@ub`(gel 0b10)
 0b10.0111
 
 :: 0xff
-> `@ub`(jel 0xff)
+> `@ub`(gel 0xff)
 0b11.1111.1101.1111.1110
 
 :: [[0x0 0x1] [0x2 0x3]]
-> `@ub`(jel [@0b0@ 0b1])
+> `@ub`(gel [@0b0@ 0b1])
 0b10@1.010@1
 \end{lstlisting}
 
-Our code implementation for \texttt{++jel} is as follows:
+Our code implementation for \texttt{++gel} is as follows:
 
 \begin{lstlisting}[style=listingcode]
 !:  |%
-++  jel
-  =jel !:  |=  a=*
+++  gel
+  =gel !:  |=  a=*
   ^-  @
   =+  l=0
   =+  b=0
@@ -160,8 +250,8 @@ Note that \texttt{l} is not the length of an atom in unary, but the length of th
 
 \section{Practical Serialization}
 
-Whatever the pedagogical advantages of \texttt{++jel}, the algorithm has practical flaws:  it is subject to collisions XXX
-and it is verbose.\footnote{Note the claim of \patp{dozreg-toplud}, p.~TODO of this issue, that an operational Arvo instance may have up to $1.66 \times 10^{21}$ nouns, reduced by structural sharing.}  \texttt{++jam} improves the basic strategy by altering the \textsc{rle} algorithm slightly and supporting internal references for noun subtrees that have already been encoded.
+Whatever the pedagogical advantages of \texttt{++gel}, the algorithm has practical flaws:  it is subject to collisions XXX
+and it is verbose.\footnote{Note the claim of \patp{dozreg-toplud}, p.~TODO of this issue, that an operational Arvo instance may have up to $1.66 \times 10^{21}$ nouns, greatly reduced by structural sharing.}  \texttt{++jam} improves the basic strategy by altering the \textsc{rle} algorithm slightly and supporting internal references for noun subtrees that have already been encoded.
 
 \texttt{++jam} converts a noun into a buffer and deduplicates repeated subtrees.  It walks subtrees and encodes each in a way that allows for efficient storage and retrieval, while also permitting references to previously encoded values.
 
