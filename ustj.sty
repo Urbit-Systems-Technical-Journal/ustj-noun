@@ -5,6 +5,8 @@
 
 \usepackage{amsfonts}
 \usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{subcaption}
 \usepackage{graphicx}
 \usepackage{calc} % for \heightof in \tombstone
 
@@ -100,7 +102,8 @@
     keepspaces,
     upquote=true,
     commentstyle=\color{darkgray}\emph,
-    keywordstyle=\color{darkgray}\bfseries
+    keywordstyle=\color{darkgray}\bfseries,
+    escapeinside={(@}{@)}
 }
 \lstdefinestyle{listingcode_python}{
     language=Python,

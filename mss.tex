@@ -1,6 +1,8 @@
 \documentclass[twoside]{article}
 
 \usepackage{ustj}
+\usepackage{cancel}
+\usepackage{pdflscape}
 
 \usepackage{tikz}
 \newcommand{\bit}[1]{%
@@ -37,7 +39,7 @@
 
 %%MANUSCRIPT
 \title{Serializing Nouns}
-\author{N.\ E.\ Davis \patp{lagrev-nocfep}, Brian Klatt \patp{zod},\thanks{Brian Klatt contributed the description of \texttt{++jam}.} \\ \& Sam Parker \patp{zod}\thanks{Sam Parker contributed the description of \texttt{++bulk}.} \\ \affiliation}
+\author{N.\ E.\ Davis \patp{lagrev-nocfep}, Brian Klatt \patp{zod},\thanks{Brian Klatt contributed the description of \texttt{+jam}.} \\ \& Sam Parker \patp{zod}\thanks{Sam Parker contributed the description of \texttt{+bulk}. \\ We gratefully acknowledge the contributions of the original architects of \texttt{+jam}/\texttt{+cue} as well.} \\ \affiliation}
 % TODO Brian Klatt credit
 \date{}
 
@@ -75,39 +77,43 @@ Both of these embody a tradeoff between simplicity, size, and speed.  Below, we 
 A noun may be an atom or a cell, and so we first propose to label nodes by type, with \texttt{0} for atom and \texttt{1} for cell.
 
 \begin{figure}[ht]
-\centering
-\begin{subfigure}
-\centering
-\begin{tikzpicture}[
-  level 1/.style={sibling distance=40mm, line width=1pt},
-  level 2/.style={sibling distance=20mm, line width=1pt},
-  every node/.style={circle,draw, line width=1pt}
-  ]
-  \node {}
-    child { node {\texttt{a}} }
-    child { node {}
-      child { node {\texttt{b}} }
-      child { node {\texttt{c}} }
-    };
-\end{tikzpicture}
-\end{subfigure}
-\begin{subfigure}
-\centering
-\begin{tikzpicture}[
-  level 1/.style={sibling distance=40mm, line width=1pt},
-  level 2/.style={sibling distance=20mm, line width=1pt},
-  every node/.style={square,draw, line width=1pt}
-  ]
-  \node {1}
-    child { node {0} }
-    child { node {1}
-      child { node {0} }
-      child { node {0} }
-    };
-\end{tikzpicture}
-\end{subfigure}
-\caption{The noun \texttt{[a b c]} (the same as \texttt{[a [b c]]}) as a binary tree and its metadata labeling in the simplest scheme.}
-\label{fig:binary-tree}
+  \centering
+  % ---------- left tree ----------
+  \begin{subfigure}{\textwidth}
+    \centering
+    \begin{tikzpicture}[
+        level 1/.style={sibling distance=40mm, line width=1pt},
+        level 2/.style={sibling distance=20mm, line width=1pt},
+        every node/.style={circle, draw, line width=1pt, minimum size=1.2em}
+      ]
+      \node {}
+        child { node {$a$} }
+        child { node {}
+          child { node {$b$} }
+          child { node {$c$} }
+        };
+    \end{tikzpicture}
+  \end{subfigure}
+  \\
+  % ---------- right tree ----------
+  \begin{subfigure}{\textwidth}
+    \centering
+    \begin{tikzpicture}[
+        level 1/.style={sibling distance=40mm, line width=1pt},
+        level 2/.style={sibling distance=20mm, line width=1pt},
+        every node/.style={rectangle, draw, line width=1pt, minimum size=1.2em}
+      ]
+      \node {\texttt{1}}
+        child { node {\texttt{0}} }
+        child { node {\texttt{1}}
+          child { node {\texttt{0}} }
+          child { node {\texttt{0}} }
+        };
+    \end{tikzpicture}
+  \end{subfigure}
+
+  \caption{The noun \texttt{[a b c]} (the same as \texttt{[a [b c]]}) as a binary tree and its metadata labeling in the simplest scheme.}
+  \label{fig:binary-tree}
 \end{figure}
 
 \noindent
@@ -130,16 +136,16 @@ a = a_{\ell-1} a_{\ell-2} \ldots a_{1} a_{0}
 $$
 
 \noindent
-where $\bar{a}$ is the encoded atom $a$ and $a$ has length $\ell$ bits.\footnote{We will use the overbar notation $\bar{a}$ throughout to notionally indicate the encoded form of $a$, regardless of the method used.}
+where $\bar{a}$ is the encoded atom $a$ and $a$ has length $\ell$ bits.\footnote{We will use the overbar notation $\bar{a}$ throughout to notionally indicate the encoded form of $a$, regardless of the method used.}  This is a unary run-length encoding (\textsc{rle}) using zeros.\footnote{Zero is something of a ``special case'':  it has no length and leading zeros are trimmed, so its encoding consists only of the delimiter, \texttt{0b1}.}
 
 \begin{table}[ht]
 \centering
-\caption{Example atom encodings with length information appended as trailing zeros.}
+\caption{Example atom encodings with length information appended as trailing zeros (unnamed encoding).}
 \label{tab:atom-encodings}
 \begin{tabular}{ l l r }
-  \textbf{Atom} & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form}} \\
+  \textbf{Atom} $a$ & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bar{a}$} \\
   \hline
-  \texttt{0b0} & 1 & \texttt{0b010} \\
+  \texttt{0b0} & 1 & \texttt{0b1} \\
   \texttt{0b1} & 1 & \texttt{0b110} \\
   \texttt{0b10} & 2 & \texttt{0b10100} \\
   \texttt{0b11} & 2 & \texttt{0b11100} \\
@@ -150,69 +156,183 @@ where $\bar{a}$ is the encoded atom $a$ and $a$ has length $\ell$ bits.\footnote
 \end{tabular}
 \end{table}
 
-For instance, the atom \texttt{0b101010} (decimal \texttt{42}) could be encoded as:
+\noindent
+We can make one further optimization:  since the most significant bit (\textsc{msb}) of the atom is always \texttt{1} except in the case of zero (which is \texttt{0b10} with the leading zero trimmed), we can omit it from the encoded form.  This saves one bit for every non-zero atom.  Let's call this scheme \texttt{+fat} encoding.  (See Table~\ref{tab:fat-encodings} for examples.)
 
-\begin{lstlisting}[style=listingcode]
-:: atom 0x2a
-> `@ub`(gel 0b101010)
-0b101010
-:: cell [0x2a 0x3b]
-> `@ub`(gel [0b101010 0b111011])
-0b1.101010@0.111011
-\end{lstlisting}
+\paragraph*{\texttt{+fat} Serialization Algorithm}
 
+\begin{itemize}
+\item  \textbf{Encode}.  Write\footnote{We always say this from the \textsc{lsb}, so from the right as written on the page.} $\ell$ bits of \texttt{0}, where $\ell$ is the length of $a$ in unary, followed by \texttt{1}.  The next $\ell$ bits are the atom $a$ in binary without the leading \texttt{1}.
+\item  \textbf{Decode}.  Read the unary length $\ell$ by counting \texttt{0} bits until the first \texttt{1} bit.  Read the next $\ell$ bits to get the atom $a$ without the leading \texttt{1}.  Prepend a \texttt{1} bit to $a$ unless $\ell$ is zero, in which case the atom is zero.
+\end{itemize}
 
-The simplest way to encode a noun as a binary tree in an atom (byte array) without compression is to utilize bits to mark atom (\texttt{0}) vs. cell (\texttt{1}), the length of the atom in unary of \texttt{1}s terminated by \texttt{0}, and the actual value.  (Since the leading zeros are stripped, they may need to be added back in.)  This is in least-significant \emph{byte} (\textsc{lsb}) order, so you should read the written atom starting from the \emph{right} in binary.
+\begin{table}[ht]
+\centering
+\caption{Example atom encodings (\texttt{+fat} encoding).}
+\label{tab:fat-encodings}
+\begin{tabular}{ l l r }
+  \textbf{Atom} $a$ & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bar{a}$} \\
+  \hline
+  \texttt{0b0} & 1 & \texttt{0b1} \\
+  \texttt{0b1} & 1 & \texttt{0b10} \\
+  \texttt{0b10} & 2 & \texttt{0b100} \\
+  \texttt{0b11} & 2 & \texttt{0b1100} \\
+  \texttt{0b101} & 3 & \texttt{0b11000} \\
+  \texttt{0b111} & 3 & \texttt{0b111000} \\
+  \texttt{0x70} & 7 & \texttt{0b11000010000000} \\
+  \texttt{0xff} & 8 & \texttt{0b1111111100000000} \\
+\end{tabular}
+\end{table}
 
-Thus the atom \texttt{0b0} would simply be encoded as:
+The primary problem with the \texttt{+fat} scheme is that the encoding of an atom is twice the bit length of the original atom.  The next optimization is to use the bit length of the bit length, which is logarithmic in the bit length.
 
-\begin{lstlisting}[style=listingcode]
-:: 0x0 = 0 for atom; 1 for length (special case);
-::       0 for end of length; 0 for value
-> `@ub`(gel 0b0)
-0b10
+$$
+a =
+\underbrace{a_{\ell-1} a_{\ell-2} \ldots a_{1} a_{0}}
+_{\textstyle \mathrlap{\kern-0.25em\ell =
+\underbrace{\ell_{h-1} \ell_{h-2} \ldots \ell_{1} \ell_{0}}
+_{\textstyle h}}}
+$$
+
+\begin{align*}
+a = & a_{\ell-1} a_{\ell-2} \ldots a_{1} a_{0}
+\xrightarrow[\textrm{\texttt{+mat} encode}]{}
+\\
+\bar{a} = &
+\underbrace{a_{\ell-1} a_{\ell-2} \ldots a_{1} a_{0}}
+_{\ell}
+\underbrace{\ell_{h-2} \ell_{h-1} \ldots \ell_{1} \ell_{0}}
+_{h-1}
+\mathtt{1}
+\underbrace{\mathtt{0} \ldots \mathtt{0}}
+_{h}
+\textrm{,}
+\end{align*}
+
+\noindent
+where $\ell$ is the bit length of $a$ and $h$ is the ``hyper bit length'' of $a$.  This yields a bit length encoding of $1+2\log_2(\ell)$ bits rather than $2\ell$ bits.  This scheme is called \lstinline[style=inlinecode]{+mat} encoding, and it is currently in use as an internal auxiliary format for other serializations.
+
+\paragraph*{\texttt{+mat} Serialization Algorithm}
+
+\begin{itemize}
+\item  \textbf{Encode}.  Write the number $h$ of \texttt{0} bits in unary, followed a leading \texttt{1} and then $h-1$ bits for the low bits of $\ell$.  The next $\ell$ bits are the atom $a$ in binary.
+\item  \textbf{Decode}.  Read the unary length of the length $h$ by counting \texttt{0} bits (from the \textsc{lsb}/right) until the first \texttt{1} bit.  Read the next $h-1$ bits to get $\ell-1$, the bit length of the atom.  Finally, read the next $\ell$ bits (adding the leading \texttt{1}) to get the atom $a$.
+\end{itemize}
+
+Some worked examples of \texttt{+mat} encoding are included in Table~\ref{tab:mat-encodings}.
+
+\begin{landscape}
+\begin{table}[ht]
+\centering
+\caption{Example atom encodings (\texttt{+mat} encoding).  The encoded form is the same result as \texttt{q:(mat a)} in Hoon.}
+\label{tab:mat-encodings}
+\begin{tabular}{ r c c r }
+  \multicolumn{1}{l}{\textbf{Atom}} $a$ & \textbf{Length (bits)} & \textbf{Mathematics} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bar{a}$} \\
+  \hline
+  \texttt{0b0} & $\ell = 1$ & $\underbrace{\cancel{{a_{\ell-1}}}\ldots\cancel{a_{0}}}_{\ell=0}\mathtt{1}\underbrace{\cancel{\mathtt{0}}\ldots\cancel{\mathtt{0}}}_{h=0}$ & \texttt{0b1} \\
+  \texttt{0b1} & $\ell = 1$ & $\underbrace{\mathtt{1}}_{\ell=1}\underbrace{\cancel{{\ell_{h-2}}}\ldots\cancel{\ell_{0}}}_{h-1=0}\mathtt{1}\underbrace{\mathtt{0}}_{h=1}$ & \texttt{0b110} \\
+  \texttt{0b10} & $\ell = 2$ & $\underbrace{\mathtt{10}}_{a=2}\underbrace{\mathtt{0}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b100100} \\
+  \texttt{0b11} & $\ell = 2$ & $\underbrace{\mathtt{11}}_{a=3}\underbrace{\mathtt{0}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b110100} \\
+  \texttt{0b100} & $\ell = 3$ & $\underbrace{\mathtt{100}}_{a=4}\underbrace{\mathtt{1}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b1001100} \\
+  \texttt{0b101} & $\ell = 3$ & $\underbrace{\mathtt{101}}_{a=5}\underbrace{\mathtt{1}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b1011100} \\
+  \texttt{0b1111} & $\ell = 4$ & $\underbrace{\mathtt{1111}}_{a=15}\underbrace{\mathtt{00}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{000}}_{h=3}$ & \texttt{0b1111001000} \\
+  \texttt{0x70} & $\ell = 7$ & $\underbrace{\mathtt{1110000}}_{a=112}\underbrace{\mathtt{11}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{000}}_{h=3}$ & \texttt{0b1110000111000} \\
+\end{tabular}
+\end{table}
+\end{landscape}
+
+With \texttt{+mat} encoding in hand, we can produce a proper serialization scheme for nouns by combining the type bit with the encoded atom or recursively encoding cells.  We call this scheme \texttt{+gel} encoding.
+
+As before, we use \texttt{0} for atom and \texttt{1} for cell.  If the noun is an atom, we follow the type bit with the \texttt{+mat} encoding of the atom.  If the noun is a cell, we follow the type bit with the \texttt{+gel} encoding of the head and then the \texttt{+gel} encoding of the tail.
+
+Consider the noun \texttt{[a [b c]]}, represented as a binary tree in Figure~\ref{fig:binary-tree-example}.  Reading across in a depth-first traversal, we produce an encoding order:
+
+\begin{lstlisting}[style=listingblock]
+(mat 1)(0)(mat 0)(0)(1)(mat 4)(0)(1)
 \end{lstlisting}
 
 \noindent
-interpreted as (rightmost, LSB) \texttt{0} for atom, run length of \texttt{1}, and value \texttt{0} (stripped).  I.e., \texttt{0b010} or
+We already have the \texttt{+mat} encodings from Table~\ref{tab:mat-encodings}; substituting these in yields:
 
-{
-\centering
-$\leftarrow$ \\
-\bit{0} \bit{1} \bit{0}
-}
-
-Other values include:
-
-\begin{lstlisting}[style=listingcode]
-:: 0x1 = 0 for atom; 1 for length;
-::       0 for end of length; 1 for value
-> `@ub`(gel 0b1)
-0b1010
-
-:: [0x0 0x1] = 1 for cell; zero, then one
-> `@ub`(gel [@0b0@ 0b1])
-0b1.010@0.010@1
-
-:: [0x1 0x0] = 1 for cell; one, then zero
-> `@ub`(gel [@0b0@ 0b1])
-0b10@1.010@1
-
-:: 0x2 = 0 for atom; 2 for length;
-::       0 for end of length; 2 for value
-> `@ub`(gel 0b10)
-0b10.0111
-
-:: 0xff
-> `@ub`(gel 0xff)
-0b11.1111.1101.1111.1110
-
-:: [[0x0 0x1] [0x2 0x3]]
-> `@ub`(gel [@0b0@ 0b1])
-0b10@1.010@1
+\begin{lstlisting}[style=listingblock]
+[110](0)[1](0)(1)[1001100](0)(1)
+0b110.0.1.0.1.1001100.0.1
+0b1100101100110001
 \end{lstlisting}
 
-Our code implementation for \texttt{++gel} is as follows:
+\begin{figure}[ht]
+  \centering
+  % ---------- left tree ----------
+  \begin{subfigure}{\textwidth}
+    \centering
+    \begin{tikzpicture}[
+        level 1/.style={sibling distance=40mm, line width=1pt},
+        level 2/.style={sibling distance=20mm, line width=1pt},
+        every node/.style={circle, draw, line width=1pt, minimum size=1.2em}
+      ]
+      \node {}
+        child { node {4} }
+        child { node {}
+          child { node {0} }
+          child { node {1} }
+        };
+    \end{tikzpicture}
+  \end{subfigure}
+  \\
+  % ---------- right tree ----------
+  \begin{subfigure}{\textwidth}
+    \centering
+    \begin{tikzpicture}[
+        level 1/.style={sibling distance=40mm, line width=1pt},
+        level 2/.style={sibling distance=20mm, line width=1pt},
+        every node/.style={rectangle, draw, line width=1pt, minimum size=1.2em}
+      ]
+      \node {\texttt{1}}
+        child { node {\texttt{0}} }
+        child { node {\texttt{1}}
+          child { node {\texttt{0}} }
+          child { node {\texttt{0}} }
+        };
+    \end{tikzpicture}
+  \end{subfigure}
+
+  \caption{The noun \texttt{[4 0 1]} as a binary tree and its metadata labeling in the simplest scheme.  Compare Figure~\ref{fig:binary-tree}.}
+  \label{fig:binary-tree-example}
+\end{figure}
+
+\paragraph*{\texttt{+gel} Serialization Algorithm}
+\begin{itemize}
+\item  \textbf{Encode}.
+  \begin{itemize}
+    \item  If the noun is an atom, write \texttt{0} followed by the \texttt{+mat} encoding of the atom.
+    \item  If the noun is a cell, write \texttt{1} followed by the \texttt{+gel} encoding of the head and then the \texttt{+gel} encoding of the tail.
+  \end{itemize}
+\item  \textbf{Decode}.  Read the first bit.
+  \begin{itemize}
+    \item  If it is \texttt{0}, read the next bits as a \texttt{+mat} encoded atom.
+    \item  If it is \texttt{1}, recursively read the next bits as the head and then the tail.
+  \end{itemize}
+\end{itemize}
+
+\texttt{+gel} encoding is straightforward to read and write even by hand.  Worked examples are included in Table~\ref{tab:gel-encodings}.
+
+\begin{table}[ht]
+\centering
+\caption{Example noun encodings (\texttt{+gel} encoding).  \texttt{.} dot delimits bit fields for readability.}
+\label{tab:gel-encodings}
+\begin{tabular}{ r r }
+  \multicolumn{1}{l}{\textbf{Noun}} & \multicolumn{1}{l}{\textbf{Encoded Form}} \\
+  \hline
+  \texttt{[0 0]} & \texttt{0b1.0.1.0.1} \\
+  \texttt{[1 0]} & \texttt{0b110.0.1.0.1} \\
+  \texttt{[2 1 0]} & \texttt{0b110.0.1.0.1.100100.0.1} \\
+  \texttt{[[2 3] 1 0]} & \texttt{0b110.0.1.0.1.110100.0.100100.0.1.1} \\
+\end{tabular}
+\end{table}
+
+TODO opposite of gel as goo
+
+Our code implementation for \texttt{+gel} is as follows:
 
 \begin{lstlisting}[style=listingcode]
 !:  |%
@@ -246,22 +366,121 @@ Our code implementation for \texttt{++gel} is as follows:
 --
 \end{lstlisting}
 
-Note that \texttt{l} is not the length of an atom in unary, but the length of the encoded noun in binary.
-
 \section{Practical Serialization}
 
-Whatever the pedagogical advantages of \texttt{++gel}, the algorithm has practical flaws:  it is subject to collisions XXX
-and it is verbose.\footnote{Note the claim of \patp{dozreg-toplud}, p.~TODO of this issue, that an operational Arvo instance may have up to $1.66 \times 10^{21}$ nouns, greatly reduced by structural sharing.}  \texttt{++jam} improves the basic strategy by altering the \textsc{rle} algorithm slightly and supporting internal references for noun subtrees that have already been encoded.
+Whatever the pedagogical advantages of \texttt{+gel}, the algorithm is still relatively verbose.  Nock-based operating functions have preferred in practice to use \texttt{+jam} encoding, which is a more compact run-length encoding with subtree deduplication.\footnote{Note the calculation of \patp{dozreg-toplud}, p.~TODO of this issue, that an operational Arvo instance may have up to $1.66 \times 10^{21}$ nouns, greatly reduced by structural sharing.}  \texttt{+jam} improves the basic strategy by altering the \textsc{rle} algorithm slightly and supporting internal references for noun subtrees that have already been encoded.
 
-\texttt{++jam} converts a noun into a buffer and deduplicates repeated subtrees.  It walks subtrees and encodes each in a way that allows for efficient storage and retrieval, while also permitting references to previously encoded values.
+\texttt{+jam} converts a noun into a buffer and deduplicates repeated subtrees.  It walks subtrees and encodes each in a way that allows for efficient storage and retrieval, while also permitting references to previously encoded values.  Basically, it takes \texttt{+gel} and adds a ``caching mode'' flag; instead of repeating subtrees, encode the index in the full jammed noun to where the current node's jammed subnoun was first written.  Thus the code changes from \texttt{0} for atom and \texttt{1} for cell to:
 
-- get Bryan notes
+\begin{itemize}
+  \item  \texttt{0} for atom.
+  \item  \texttt{01} for cell.
+  \item  \texttt{11} for cached node.
+\end{itemize}
 
-special-cases 0
+\begin{figure}[ht]
+  \centering
+  % ---------- left tree ----------
+  \begin{subfigure}{\textwidth}
+    \centering
+    \begin{tikzpicture}[
+        level 1/.style={sibling distance=40mm, line width=1pt},
+        level 2/.style={sibling distance=20mm, line width=1pt},
+        every node/.style={circle, draw, line width=1pt, minimum size=1.2em}
+      ]
+      \node {}
+        child { node {}
+          child { node {0} }
+          child { node {0} }
+        }
+        child { node {}
+          child { node {0} }
+          child { node {0} }
+        };
+    \end{tikzpicture}
+  \end{subfigure}
+  \\
+  % ---------- right tree ----------
+  \begin{subfigure}{\textwidth}
+    \centering
+    \begin{tikzpicture}[
+        level 1/.style={sibling distance=40mm, line width=1pt},
+        level 2/.style={sibling distance=20mm, line width=1pt},
+        every node/.style={rectangle, draw, line width=1pt, minimum size=1.2em}
+      ]
+      \node {\underline{\texttt{01}}}
+        child { node {\texttt{01}}
+          child { node {\underline{\texttt{0}}} }
+          child { node {\texttt{0}} }
+        }
+        child { node {\texttt{11}}
+          child { node {} }
+          child { node {} }
+        };
+    \end{tikzpicture}
+  \end{subfigure}
 
-The new \textsc{rle} calculation is to post the number plus one in binary rather than unary (e.g., for \texttt{} the length would be \texttt{0b010}).
+  \caption{The noun \texttt{[[0 0] 0 0]} as a binary tree and its metadata labeling for the \texttt{+jam} scheme.}
+  \label{fig:binary-tree-jam}
+\end{figure}
 
-(Since there is a value less significant than the length, the leading zero is not lost but serves as a divider.)
+Following the metadata labels given in Figure~\ref{fig:binary-tree-jam}, the encoding order for \texttt{[[0 0] 0 0]} is:
+
+\begin{lstlisting}[style=listingblock]
+(mat 2)(11)(mat 0)(0)(mat 0)((@$\underline{\mathtt{0}}$@))(01)((@$\underline{\mathtt{01}}$@))
+0b100100.11.1.0.1.(@$\underline{\mathtt{0}}$@).01.(@$\underline{\mathtt{01}}$@)
+0b1001001110100101
+\end{lstlisting}
+
+\noindent
+The cached entry \texttt{(mat 2)} indicates that the cached subtree is a copy of the subtree located at tree address 2 in the overall jammed noun.
+
+However, this bit of cleverness isn't the end:  \texttt{+jam} also decides \emph{when} to cache subtrees based on the size of the nouns involved.  For instance, \texttt{[3 3 3]} encodes as:
+
+\begin{lstlisting}[style=listingblock]
+(mat 3)(0)(mat 3)(0)(01)(mat 3)(0)(01)
+0b110100.0.110100.0.01.110100.0.01
+0b1101000110100001110100001
+\end{lstlisting}
+
+\noindent
+wherein no caching is used.  When 3 is first encountered at index 2, 2 and 3 have the same bit lengths; since \texttt{(mat 2)} and \texttt{(mat 3)} are the same length, caching would not save any space and would add decoding overhead due to dereferencing.
+
+In contrast, \texttt{[4 4 4]} encodes as:
+
+\begin{lstlisting}[style=listingblock]
+(mat 2)(11)(mat 2)(11)(01)(1001100)(0)(01)
+0b100100.11.100100.11.01.1001100.0.01
+0b1001001110010011011001100001
+\end{lstlisting}
+
+\noindent
+where caching is used for the second and third occurrences of 4.  Here, 4 has bit length 3 which is greater than the bit length of 2 which is 2, and caching saves space overall in the jammed noun.
+
+\paragraph*{\texttt{+jam} Serialization Algorithm}
+
+\begin{itemize}
+\item  \textbf{Encode}.
+  \begin{itemize}
+    \item  If the noun is an atom, write \texttt{0} followed by the \texttt{+mat} encoding of the atom.
+    \item  If the noun is a cell, check if it has been previously encoded.
+      \begin{itemize}
+        \item  If it has, write \texttt{11} followed by the \texttt{+mat} encoding of the index where it was first encoded.
+        \item  If it has not, write \texttt{01} followed by the \texttt{+jam} encoding of the head and then the \texttt{+jam} encoding of the tail.  Store the current index for future reference.
+      \end{itemize}
+  \end{itemize}
+\item  \textbf{Decode}.  Read the first bit.
+  \begin{itemize}
+    \item  If it is \texttt{0}, read the next bits as a \texttt{+mat} encoded atom.
+    \item  If it is \texttt{1}, read the next bit.
+      \begin{itemize}
+        \item  If it is \texttt{0}, recursively read the next bits as the head and then the tail.
+        \item  If it is \texttt{1}, read the next bits as a \texttt{+mat} encoded index and retrieve the cached subtree.
+      \end{itemize}
+  \end{itemize}
+\end{itemize}
+
+Here is the reference implementation of \texttt{+jam} in Hoon:
 
 \begin{lstlisting}[style=listingcode]
 ++  jam
@@ -291,32 +510,40 @@ The new \textsc{rle} calculation is to post the number plus one in binary rather
   [(add 2 p.d) (mix 3 (lsh [0 2] q.d)) m]
 \end{lstlisting}
 
-A Python example of \texttt{++jam} is included in Appendix~A.
+A Python implementation of \texttt{+jam} is included in Appendix~A.
+
+Here is the reference implementation of \texttt{+cue} in Hoon:
+
+\begin{lstlisting}[style=listingcode]
+TODO
+\end{lstlisting}
+
+Likewise, a Python implementation of \texttt{+cue} is included in Appendix~A.
 
 \subsection{\texttt{newt} Encoding}
 
 \sloppy
-“Newt” encoding is a runtime-oriented extension of \texttt{++jam}\-based noun serialization which adds a short identifying header in case of future changes to the serialization format.  A \mbox{version} number (currently a single bit) precedes a \textsc{rle} serialization length followed by the \texttt{++jam} serialization of the noun.  The version number is currently \texttt{0b0}.
+“Newt” encoding is a runtime-oriented extension of \texttt{+jam}\-based noun serialization which adds a short identifying header in case of future changes to the runtime's serialization format.  A \mbox{version} number (currently a single bit) precedes a \textsc{rle} serialization length followed by the \texttt{+jam} serialization of the noun.  The version number is currently \texttt{0b0}.
 
 \begin{lstlisting}[style=listingcode]
   V.LLLL.JJJJ.JJJJ.JJJJ.JJJJ.JJJJ.JJJJ
 \end{lstlisting}
 
 \noindent
-where \texttt{V} is the version number, \texttt{L} is the total length of the noun in bytes, and \texttt{J} is the \texttt{++jam} serialization of the noun.
+where \texttt{V} is the version number, \texttt{L} is the total length of the noun in bytes, and \texttt{J} is the \texttt{+jam} serialization of the noun.
 
 Runtime communications vanes like \texttt{\%khan} and \texttt{\%lick} utilize this encoding locally.  It is exclusively used as a host OS runtime affordance at the current time.
 
 \section{Directed Graph Encoding}
 
-A directed graph encoding has been independently proposed twice, once by Tlon in the original Hoon codebase as a \lstinline[style=inlinecode]{+$silo} encoding and once by Sam Parker as the \lstinline[style=inlinecode]{++bulk} encoding.
+A directed graph encoding has been independently proposed twice, once by Tlon in the original Hoon codebase as a \lstinline[style=inlinecode]{+$silo} encoding and once by Sam Parker as the \lstinline[style=inlinecode]{+bulk} encoding.
 
 
 \section{Aligned Serialization}
 
-One of the advantages of \texttt{++jam} is its compactness.  However, this comes at the cost of speed, since bit-level operations are required to \texttt{++cue} the noun back from its serialized form.  If a slightly larger size is acceptable, a byte-aligned serialization could facilitate certain kinds of external inspection without requiring deserialization.  (For instance, a byte-aligned head tag could be read for a rapid decision without needing to \texttt{++cue} the entire noun.)
+One of the advantages of \texttt{+jam} is its compactness.  However, this comes at the cost of speed, since bit-level operations are required to \texttt{+cue} the noun back from its serialized form.  If a slightly larger size is acceptable, a byte-aligned serialization could facilitate certain kinds of external inspection without requiring deserialization.  (For instance, a byte-aligned head tag could be read for a rapid decision without needing to \texttt{+cue} the entire noun.)
 
-We propose a strategy to modify \texttt{++jam} to align to bytes by padding the length of entries to the nearest byte boundary and marking the distance with a clever binary scheme rather than simply unary.  This approach, called \texttt{++honey}, aims to balance compactness and speed for certain use cases while retaining a large degree of conceptual backwards compatibility.  (The change in byte alignment of course breaks strict compatibility.)
+We propose a strategy to modify \texttt{+jam} to align to bytes by padding the length of entries to the nearest byte boundary and marking the distance with a clever binary scheme rather than simply unary.  This approach, called \texttt{+honey}, aims to balance compactness and speed for certain use cases while retaining a large degree of conceptual backwards compatibility.  (The change in byte alignment of course breaks strict compatibility.)
 
 There are two fundamental issues for byte alignment:  atoms and lengths.  Atoms can be padded with leading zeros to the nearest byte boundary without changing their value.  Lengths, however, require a new encoding scheme to compensate for the adjustment in expected bit widths.  %We propose a variable-length encoding for lengths that uses the high bit of each byte to indicate whether more bytes follow.  The remaining seven bits of each byte contribute to the length value.  This allows for efficient representation of lengths while maintaining byte alignment.
 
@@ -324,9 +551,9 @@ There are two fundamental issues for byte alignment:  atoms and lengths.  Atoms 
 
 \section{Conclusion}
 
-\section*{Appendix A:  Python \texttt{++jam}/\texttt{++cue}}
+\section*{Appendix A:  Python \texttt{+jam}/\texttt{+cue}}
 
-The following is a simple Python implementation of \texttt{++jam} serialization drawn from Urbit’s auxiliary \texttt{pynoun} library.
+The following is a simple Python implementation of \texttt{+jam} serialization drawn from Urbit’s auxiliary \texttt{pynoun} library.
 
 \begin{lstlisting}[style=listingcode_python]
 from bitstring import BitArray
