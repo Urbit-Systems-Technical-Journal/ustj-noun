@@ -15,9 +15,9 @@
 
 \addbibresource{mss.bib}
 
-\newcommand{\authorname}{N. E. Davis, Brian Klatt, \& Sam Parker}
-\newcommand{\authorpatp}{\patp{lagrev-nocfep}, \patp{zod}, \& \patp{zod}}
-\newcommand{\affiliation}{Zorp Corp, Zorp Corp, \& —}
+\newcommand{\authorname}{N. E. Davis \patp{lagrev-nocfep},* Brian Klatt \patp{ticlys-monlun},* \& Sam Parker \patp{borlug-walryd}†}
+% \newcommand{\authorpatp}{, , \& \patp{borlug-walryd}}
+\newcommand{\affiliation}{* Zorp Corp \\ † —}
 
 %  Make first page footer:
 \fancypagestyle{firststyle}{%
@@ -39,8 +39,7 @@
 
 %%MANUSCRIPT
 \title{Serializing Nouns}
-\author{N.\ E.\ Davis \patp{lagrev-nocfep}, Brian Klatt \patp{zod},\thanks{Brian Klatt contributed the description of \texttt{+jam}.} \\ \& Sam Parker \patp{zod}\thanks{Sam Parker contributed the description of \texttt{+bulk}. \\ We gratefully acknowledge the contributions of the original architects of \texttt{+jam}/\texttt{+cue} as well.} \\ \affiliation}
-% TODO Brian Klatt credit
+\author{N. E. Davis \patp{lagrev-nocfep},* \\ Brian Klatt \patp{ticlys-monlun},* \\ \& Sam Parker \patp{borlug-walryd}† \\ \affiliation}
 \date{}
 
 \begin{document}
@@ -49,7 +48,7 @@
 \thispagestyle{firststyle}
 
 \begin{abstract}
-Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes and compares the two principal conventions for representing nouns in slightly compressed form as byte arrays, as well as introduces variant encodings for educational purposes.
+Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes and compares the two principal conventions for representing nouns in slightly compressed form as byte arrays, as well as introduces variant encodings for educational purposes.\footnote{Brian Klatt contributed the description of \texttt{+jam}.  Sam Parker contributed the description of \texttt{+bulk}.  We gratefully acknowledge the contributions of the original architects of \texttt{+jam}/\texttt{+cue} as well.}
 \end{abstract}
 
 % We will adjust page numbering in final editing.
@@ -536,7 +535,107 @@ Runtime communications vanes like \texttt{\%khan} and \texttt{\%lick} utilize th
 
 \section{Directed Graph Encoding}
 
-A directed graph encoding has been independently proposed twice, once by Tlon in the original Hoon codebase as a \lstinline[style=inlinecode]{+$silo} encoding and once by Sam Parker as the \lstinline[style=inlinecode]{+bulk} encoding.
+
+
+A directed graph encoding has been independently proposed twice, once by Tlon in the original Hoon codebase as a \lstinline[style=inlinecode]{+$silo TODO} encoding and once by Sam Parker as the \lstinline[style=inlinecode]{+bulk} encoding.
+
+\begin{figure}[htp]
+  \centering
+    \centering
+    \begin{subfigure}{\textwidth}
+      \centering
+      \begin{tikzpicture}[
+          level 1/.style={sibling distance=40mm, line width=1pt},
+          level 2/.style={sibling distance=20mm, line width=1pt},
+          level 3/.style={sibling distance=10mm, line width=1pt},
+          level 4/.style={sibling distance=10mm, line width=1pt},
+          every node/.style={circle, draw, line width=1pt, minimum size=1.2em},
+          every node/.style={circle, draw, minimum size=0.5cm, thick},
+          >=stealth
+        ]
+        % 1
+        \node[very thick] {}
+          child[edge from parent/.style={draw, ->, very thick}] { 
+            %2
+            node[double, thick] {}
+            child[edge from parent/.style={draw, ->, double, thick}] { 
+              %4
+              node[dashed, thick] {}
+              child[edge from parent/.style={draw, ->, dashed, thick}] { 
+                %8
+                node {} }
+              child[edge from parent/.style={draw, ->, dashed, thick}] { 
+                %9
+                node[dotted, thick] {}
+                child[edge from parent/.style={draw, ->, dotted, thick}] { 
+                  %18
+                  node[solid, thick] {} }
+                child[edge from parent/.style={draw, ->, dotted, thick}] { 
+                  %19
+                  node[solid, thick] {} }
+              }
+            }
+            child[edge from parent/.style={draw, ->, double, thick}] { 
+              %5
+              node[dotted, thick] {}
+              child[edge from parent/.style={draw, ->, dotted, thick}] { 
+                %10
+                node {} }
+              child[edge from parent/.style={draw, ->, dotted, thick}] { 
+                %11
+                node {} }
+            }
+          }
+          child[edge from parent/.style={draw, ->, very thick}] { 
+            %3
+            node[dashed, thick] {}
+            child[edge from parent/.style={draw, ->, dashed, thick}] { 
+              %6
+              node {} }
+            child[edge from parent/.style={draw, ->, dashed, thick}] { 
+              %7
+              node[dotted, thick] {}
+              child[edge from parent/.style={draw, ->, dotted, thick}] { 
+                %14
+                node[solid, thick] {} }
+              child[edge from parent/.style={draw, ->, dotted, thick}] { 
+                %15
+                node[solid, thick] {} }
+            }
+          };
+      \end{tikzpicture}
+    \end{subfigure}
+    \\
+    \begin{subfigure}{\textwidth}
+      \centering
+      \begin{tikzpicture}[
+        node distance=3cm,
+        every node/.style={circle, draw, minimum size=0.5cm, thick},
+        >=stealth
+      ]
+        % Define the four nodes in a square
+        \node[vertex, very thick] (Root) at (1.5,4.5) {};
+        \node[vertex, double, thick] (A) at (0,3) {};
+        \node[vertex, dashed, thick] (B) at (3,3) {};
+        \node[vertex, dotted, thick] (C) at (0,0) {};
+        \node[vertex, thick] (D) at (3,0) {};
+
+        \draw[->, very thick] (Root) -- node[above, draw=none] {L} (A);
+        \draw[->, very thick] (Root) -- node[above, draw=none] {R} (B);
+
+        \draw[->, double, thick] (A) -- node[above, draw=none] {L} (B);
+        \draw[->, double, thick] (A) -- node[left, draw=none] {R} (C);
+
+        \draw[->, dashed, thick] (B) -- node[right, draw=none] {R} (C);
+        \draw[->, dashed, thick] (B) -- node[left, draw=none] {L} (D);
+
+        \draw[->, dotted, thick, bend left=20] (C) to node[above, draw=none] {L} (D);
+        \draw[->, dotted, thick, bend right=20] (C) to node[below, draw=none] {R} (D);
+      \end{tikzpicture}
+    \end{subfigure}
+  \caption{The noun \texttt{[[a [a a]] [a a]] [a [a a]]} as a binary tree and its metadata labeling in a directed graph representation.}
+  \label{fig:binary-tree-dcg}
+\end{figure}
 
 
 \section{Aligned Serialization}
@@ -552,8 +651,9 @@ There are two fundamental issues for byte alignment:  atoms and lengths.  Atoms 
 \section{Conclusion}
 
 \section*{Appendix A:  Python \texttt{+jam}/\texttt{+cue}}
+\subsection*{\patp{fodwyt-ragful}}
 
-The following is a simple Python implementation of \texttt{+jam} serialization drawn from Urbit’s auxiliary \texttt{pynoun} library.
+The following is a simple Python implementation of \texttt{+jam} serialization drawn from Urbit’s auxiliary \texttt{pynoun} library.\footnote{The original \texttt{pynoun} library was authored by Paul Driver \patp{fodwyt-ragful}.}
 
 \begin{lstlisting}[style=listingcode_python]
 from bitstring import BitArray
