@@ -15,9 +15,8 @@
 
 \addbibresource{mss.bib}
 
-\newcommand{\authorname}{N. E. Davis \patp{lagrev-nocfep},* Brian Klatt \patp{ticlys-monlun},* \& Sam Parker \patp{borlug-walryd}†}
-% \newcommand{\authorpatp}{, , \& \patp{borlug-walryd}}
-\newcommand{\affiliation}{* Zorp Corp \\ † —}
+\newcommand{\authorname}{Brian Klatt \patp{ticlys-monlun}, N. E. Davis \patp{lagrev-nocfep}}
+\newcommand{\affiliation}{Zorp Corp}
 
 %  Make first page footer:
 \fancypagestyle{firststyle}{%
@@ -34,12 +33,12 @@
 %  Arrange subsequent pages:
 \fancyhf{}
 \fancyhead[LE]{{\urbitfont Urbit Systems Technical Journal}}
-\fancyhead[RO]{Serializing Nouns}
+\fancyhead[RO]{Noun Serialization}
 \fancyfoot[LE,RO]{\thepage}
 
 %%MANUSCRIPT
-\title{Serializing Nouns}
-\author{N. E. Davis \patp{lagrev-nocfep},* \\ Brian Klatt \patp{ticlys-monlun},* \\ \& Sam Parker \patp{borlug-walryd}† \\ \affiliation}
+\title{Noun Serialization}
+\author{Brian Klatt \patp{ticlys-monlun}, \\ N. E. Davis \patp{lagrev-nocfep}* \\ \affiliation}
 \date{}
 
 \begin{document}
@@ -48,8 +47,14 @@
 \thispagestyle{firststyle}
 
 \begin{abstract}
-Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes and compares the two principal conventions for representing nouns in slightly compressed form as byte arrays, as well as introduces variant encodings for educational purposes.\footnote{Brian Klatt contributed the description of \texttt{+jam}.  Sam Parker contributed the description of \texttt{+bulk}.  We gratefully acknowledge the contributions of the original architects of \texttt{+jam}/\texttt{+cue} as well.}
+Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes the principal convention for representing a noun in compressed form as a byte array, as well as introduces variant encodings for educational purposes.
 \end{abstract}
+
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+\setcounter{footnote}{0}
+\footnotetext[1]{\sloppy We gratefully acknowledge the original architect of \texttt{+jam} and \texttt{+cue}, \mbox{Curtis} Yarvin \patp{sorreg-namtyv}.  The original function, in \href{https://github.com/cgyarvin/urbit/blame/55f591594080d276fc446ceafa4afff092561613/watt/jam.watt}{\texttt{jam.watt}}, dates to \textasciitilde 2011.6.11.}
+\renewcommand{\thefootnote}{\arabic{footnote}}
+\setcounter{footnote}{0}
 
 % We will adjust page numbering in final editing.
 \pagenumbering{arabic}
@@ -61,15 +66,7 @@ Noun serialization is commonly used for Nock communication, both between instanc
 
 The Nock combinator calculus deals in nouns and does not know about bit encodings or memory layouts.  A Nock interpreter (runtime) must, however, deal with the practicalities.  In other words, there must be a way of writing down an abstract binary tree (consisting of cells/pairs and atoms) as an actual, physical array of bits in memory.  Every possible Nock noun can be represented as a finite sequence of bytes (an atom), and there are multiple ways to do so.\footnote{The converse is not true:  not every atom represents a valid deserialization or conversion from a graph encoding.}
 
-A noun serialization strategy is rather like a Gödel numbering in that it systematically encodes a mathematical object (a noun) as a number (an atom).  Unlike Gödel numbering, which classically serially encodes the symbols of mathematical statements, noun serialization encodes a binary tree structure.\footnote{This also echoes the way that S-expressions are encoded in Lisp.}  Because a noun may be any atom---and atoms cannot have leading zeroes---both structure and value need to be unambiguously encoded and cannot be simply delimited (as by a \texttt{0} bit or similar).  There are two basic strategies to encode a noun as an atom:
-
-\begin{enumerate}
-  \item  Run-length serialization, with or without references.
-  \item  Directed graph serialization, depending on a reentrant graph encoding.
-\end{enumerate}
-
-\noindent
-Both of these embody a tradeoff between simplicity, size, and speed.  Below, we describe both of these strategies and some new variants which offer possible advantages.  Reversible noun encoding is essential for Nock communication, both between Nock execution layers such as Vere and NockVM, and between the runtime and the host operating system.
+A noun serialization strategy is rather like a Gödel numbering in that it systematically encodes a mathematical object (a noun) as a number (an atom).  Unlike Gödel numbering, which classically serially encodes the symbols of mathematical statements, noun serialization encodes a binary tree structure.\footnote{This also echoes the way that S-expressions are encoded in Lisp.}  Because a noun may be any atom---and atoms cannot have leading zeroes---both structure and value need to be unambiguously encoded and cannot be simply delimited (as by a \texttt{0} bit or similar).  Run-length serialization, with or without references, forms the basis of practical strategies to encode a noun as an atom.  This embodies a tradeoff between simplicity, size, and speed.  We describe this strategy and some pedagogical variants which afford insight to the process.  Likewise, deserialization is the inverse operation of converting a serialized atom back into the original noun, and must be unambiguously reversible.  Noun serialization is essential for Nock communication, both between Nock execution layers such as Vere and NockVM, and between the runtime and the host operating system.
 
 \section{Na\"{i}ve Serialization}
 
@@ -125,6 +122,8 @@ c 0 b 0 1 a 0 1
 \noindent
 The issue, however, is that in decoding this bitstream we do not know where an atom value (such as \texttt{a}) ends.  After all, the point of serialization is to be able to deserialize the bitstream back into the original noun.  Thus we need a way to indicate the length of each atom.
 
+\subsection{Atom Length Encoding}
+
 Let's augment this scheme by providing length information for each atom.  One basic idea is to include a string of \texttt{0} bits as the least-significant bits (\textsc{lsb}) of the atom which indicates the length of the atom in bits.  Since the atom could be zero, we also delimit the length with a \texttt{1} bit.  (See Table~\ref{tab:atom-encodings} for examples.)
 
 $$
@@ -152,11 +151,13 @@ where $\bar{a}$ is the encoded atom $a$ and $a$ has length $\ell$ bits.\footnote
   \texttt{0b111} & 3 & \texttt{0b1111000} \\
   \texttt{0x70} & 7 & \texttt{0b111000010000000} \\
   \texttt{0xff} & 8 & \texttt{0b11111111100000000} \\
+  \texttt{0x1234} & 15 & \texttt{0b100001100100001} \\
+  & & \texttt{↳1000000000000000} \\
 \end{tabular}
 \end{table}
 
 \noindent
-We can make one further optimization:  since the most significant bit (\textsc{msb}) of the atom is always \texttt{1} except in the case of zero (which is \texttt{0b10} with the leading zero trimmed), we can omit it from the encoded form.  This saves one bit for every non-zero atom.  Let's call this scheme \texttt{+fat} encoding.  (See Table~\ref{tab:fat-encodings} for examples.)
+We can make one further optimization:  since the most significant bit (\textsc{msb}) of the atom is always \texttt{1} except in the case of zero (which is \texttt{0b1} with the leading zero trimmed), we can omit it from the encoded form.  This saves one bit for every non-zero atom.  Let's call this scheme \texttt{+fat} encoding.  (See Table~\ref{tab:fat-encodings} for examples.)
 
 \paragraph*{\texttt{+fat} Serialization Algorithm}
 
@@ -167,19 +168,21 @@ We can make one further optimization:  since the most significant bit (\textsc{m
 
 \begin{table}[ht]
 \centering
-\caption{Example atom encodings (\texttt{+fat} encoding).}
+\caption{Example atom encodings (\texttt{+fat} encoding).  Elided digits are shown in light gray for clarity.}
 \label{tab:fat-encodings}
 \begin{tabular}{ l l r }
   \textbf{Atom} $a$ & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bar{a}$} \\
   \hline
   \texttt{0b0} & 1 & \texttt{0b1} \\
-  \texttt{0b1} & 1 & \texttt{0b10} \\
-  \texttt{0b10} & 2 & \texttt{0b100} \\
-  \texttt{0b11} & 2 & \texttt{0b1100} \\
-  \texttt{0b101} & 3 & \texttt{0b11000} \\
-  \texttt{0b111} & 3 & \texttt{0b111000} \\
-  \texttt{0x70} & 7 & \texttt{0b11000010000000} \\
-  \texttt{0xff} & 8 & \texttt{0b1111111100000000} \\
+  \texttt{0b1} & 1 & \texttt{0b\textcolor{lightgray}{1}10} \\
+  \texttt{0b10} & 2 & \texttt{0b\textcolor{lightgray}{10}100} \\
+  \texttt{0b11} & 2 & \texttt{0b\textcolor{lightgray}{1}1100} \\
+  \texttt{0b101} & 3 & \texttt{0b\textcolor{lightgray}{10}11000} \\
+  \texttt{0b111} & 3 & \texttt{0b\textcolor{lightgray}{1}111000} \\
+  \texttt{0x70} & 7 & \texttt{0b\textcolor{lightgray}{1}11000010000000} \\
+  \texttt{0xff} & 8 & \texttt{0b\textcolor{lightgray}{1}1111111100000000} \\
+  \texttt{0x1234} & 15 & \texttt{0b\textcolor{lightgray}{10000}1100100001} \\
+  & & \texttt{↳1000000000000000} \\
 \end{tabular}
 \end{table}
 
@@ -244,7 +247,7 @@ With \texttt{+mat} encoding in hand, we can produce a proper serialization schem
 
 As before, we use \texttt{0} for atom and \texttt{1} for cell.  If the noun is an atom, we follow the type bit with the \texttt{+mat} encoding of the atom.  If the noun is a cell, we follow the type bit with the \texttt{+gel} encoding of the head and then the \texttt{+gel} encoding of the tail.
 
-Consider the noun \texttt{[a [b c]]}, represented as a binary tree in Figure~\ref{fig:binary-tree-example}.  Reading across in a depth-first traversal, we produce an encoding order:
+Consider the noun \texttt{[a [b c]]} (= \texttt{[a b c]}), represented as a binary tree in Figure~\ref{fig:binary-tree-example}.  Reading across in a depth-first traversal, we produce an encoding order:
 
 \begin{lstlisting}[style=listingblock]
 (mat 1)(0)(mat 0)(0)(1)(mat 4)(0)(1)
@@ -507,6 +510,17 @@ Here is the reference implementation of \texttt{+jam} in Hoon:
     [(add 1 p.d) (lsh 0 q.d) m]
   =+  d=(mat u.c)
   [(add 2 p.d) (mix 3 (lsh [0 2] q.d)) m]
+::  length encode
+++  mat
+  ~/  %mat
+  |=  a=@
+  ^-  [p=@ q=@]
+  ?:  =(0 a)
+    [1 1]
+  =+  b=(met 0 a)
+  =+  c=(met 0 b)
+  :-  (add (add c c) b)
+  (cat 0 (bex c) (mix (end [0 (dec c)] b) (lsh [0 (dec c)] a)))
 \end{lstlisting}
 
 A Python implementation of \texttt{+jam} is included in Appendix~A.
@@ -514,7 +528,41 @@ A Python implementation of \texttt{+jam} is included in Appendix~A.
 Here is the reference implementation of \texttt{+cue} in Hoon:
 
 \begin{lstlisting}[style=listingcode]
-TODO
+++  cue
+  ~/  %cue
+  |=  a=@
+  ^-  *
+  =+  b=0
+  =+  m=`(map @ *)`~
+  =<  q
+  |-  ^-  [p=@ q=* r=(map @ *)]
+  ?:  =(0 (cut 0 [b 1] a))
+    =+  c=(rub +(b) a)
+    [+(p.c) q.c (~(put by m) b q.c)]
+  =+  c=(add 2 b)
+  ?:  =(0 (cut 0 [+(b) 1] a))
+    =+  u=$(b c)
+    =+  v=$(b (add p.u c), m r.u)
+    =+  w=[q.u q.v]
+    [(add 2 (add p.u p.v)) w (~(put by r.v) b w)]
+  =+  d=(rub c a)
+  [(add 2 p.d) (need (~(get by m) q.d)) m]
+::  length decode
+++  rub
+  ~/  %rub
+  |=  [a=@ b=@]
+  ^-  [p=@ q=@]
+  =+  ^=  c
+      =+  [c=0 m=(met 0 b)]
+      |-  ?<  (gth c m)
+      ?.  =(0 (cut 0 [(add a c) 1] b))
+        c
+      $(c +(c))
+  ?:  =(0 c)
+    [1 0]
+  =+  d=(add a +(c))
+  =+  e=(add (bex (dec c)) (cut 0 [d (dec c)] b))
+  [(add (add c c) e) (cut 0 [(add d (dec c)) e] b)]
 \end{lstlisting}
 
 Likewise, a Python implementation of \texttt{+cue} is included in Appendix~A.
@@ -533,110 +581,6 @@ where \texttt{V} is the version number, \texttt{L} is the total length of the no
 
 Runtime communications vanes like \texttt{\%khan} and \texttt{\%lick} utilize this encoding locally.  It is exclusively used as a host OS runtime affordance at the current time.
 
-\section{Directed Graph Encoding}
-
-
-
-A directed graph encoding has been independently proposed twice, once by Tlon in the original Hoon codebase as a \lstinline[style=inlinecode]{+$silo TODO} encoding and once by Sam Parker as the \lstinline[style=inlinecode]{+bulk} encoding.
-
-\begin{figure}[htp]
-  \centering
-    \centering
-    \begin{subfigure}{\textwidth}
-      \centering
-      \begin{tikzpicture}[
-          level 1/.style={sibling distance=40mm, line width=1pt},
-          level 2/.style={sibling distance=20mm, line width=1pt},
-          level 3/.style={sibling distance=10mm, line width=1pt},
-          level 4/.style={sibling distance=10mm, line width=1pt},
-          every node/.style={circle, draw, line width=1pt, minimum size=1.2em},
-          every node/.style={circle, draw, minimum size=0.5cm, thick},
-          >=stealth
-        ]
-        % 1
-        \node[very thick] {}
-          child[edge from parent/.style={draw, ->, very thick}] { 
-            %2
-            node[double, thick] {}
-            child[edge from parent/.style={draw, ->, double, thick}] { 
-              %4
-              node[dashed, thick] {}
-              child[edge from parent/.style={draw, ->, dashed, thick}] { 
-                %8
-                node {} }
-              child[edge from parent/.style={draw, ->, dashed, thick}] { 
-                %9
-                node[dotted, thick] {}
-                child[edge from parent/.style={draw, ->, dotted, thick}] { 
-                  %18
-                  node[solid, thick] {} }
-                child[edge from parent/.style={draw, ->, dotted, thick}] { 
-                  %19
-                  node[solid, thick] {} }
-              }
-            }
-            child[edge from parent/.style={draw, ->, double, thick}] { 
-              %5
-              node[dotted, thick] {}
-              child[edge from parent/.style={draw, ->, dotted, thick}] { 
-                %10
-                node {} }
-              child[edge from parent/.style={draw, ->, dotted, thick}] { 
-                %11
-                node {} }
-            }
-          }
-          child[edge from parent/.style={draw, ->, very thick}] { 
-            %3
-            node[dashed, thick] {}
-            child[edge from parent/.style={draw, ->, dashed, thick}] { 
-              %6
-              node {} }
-            child[edge from parent/.style={draw, ->, dashed, thick}] { 
-              %7
-              node[dotted, thick] {}
-              child[edge from parent/.style={draw, ->, dotted, thick}] { 
-                %14
-                node[solid, thick] {} }
-              child[edge from parent/.style={draw, ->, dotted, thick}] { 
-                %15
-                node[solid, thick] {} }
-            }
-          };
-      \end{tikzpicture}
-    \end{subfigure}
-    \\
-    \begin{subfigure}{\textwidth}
-      \centering
-      \begin{tikzpicture}[
-        node distance=3cm,
-        every node/.style={circle, draw, minimum size=0.5cm, thick},
-        >=stealth
-      ]
-        % Define the four nodes in a square
-        \node[vertex, very thick] (Root) at (1.5,4.5) {};
-        \node[vertex, double, thick] (A) at (0,3) {};
-        \node[vertex, dashed, thick] (B) at (3,3) {};
-        \node[vertex, dotted, thick] (C) at (0,0) {};
-        \node[vertex, thick] (D) at (3,0) {};
-
-        \draw[->, very thick] (Root) -- node[above, draw=none] {L} (A);
-        \draw[->, very thick] (Root) -- node[above, draw=none] {R} (B);
-
-        \draw[->, double, thick] (A) -- node[above, draw=none] {L} (B);
-        \draw[->, double, thick] (A) -- node[left, draw=none] {R} (C);
-
-        \draw[->, dashed, thick] (B) -- node[right, draw=none] {R} (C);
-        \draw[->, dashed, thick] (B) -- node[left, draw=none] {L} (D);
-
-        \draw[->, dotted, thick, bend left=20] (C) to node[above, draw=none] {L} (D);
-        \draw[->, dotted, thick, bend right=20] (C) to node[below, draw=none] {R} (D);
-      \end{tikzpicture}
-    \end{subfigure}
-  \caption{The noun \texttt{[[a [a a]] [a a]] [a [a a]]} as a binary tree and its metadata labeling in a directed graph representation.}
-  \label{fig:binary-tree-dcg}
-\end{figure}
-
 
 \section{Aligned Serialization}
 
@@ -646,14 +590,17 @@ We propose a strategy to modify \texttt{+jam} to align to bytes by padding the l
 
 There are two fundamental issues for byte alignment:  atoms and lengths.  Atoms can be padded with leading zeros to the nearest byte boundary without changing their value.  Lengths, however, require a new encoding scheme to compensate for the adjustment in expected bit widths.  %We propose a variable-length encoding for lengths that uses the high bit of each byte to indicate whether more bytes follow.  The remaining seven bits of each byte contribute to the length value.  This allows for efficient representation of lengths while maintaining byte alignment.
 
-\section{Benchmarks}
-
 \section{Conclusion}
 
-\section*{Appendix A:  Python \texttt{+jam}/\texttt{+cue}}
-\subsection*{\patp{fodwyt-ragful}}
+\tombstone
 
-The following is a simple Python implementation of \texttt{+jam} serialization drawn from Urbit’s auxiliary \texttt{pynoun} library.\footnote{The original \texttt{pynoun} library was authored by Paul Driver \patp{fodwyt-ragful}.}
+\selectlanguage{USenglish}
+% \printbibliography
+
+\section*{Appendix A:  Python \texttt{+jam}/\texttt{+cue}}
+\subsection*{Paul Driver \patp{fodwyt-ragful}}
+
+The following is a simple Python implementation of \texttt{+jam} serialization and \texttt{+cue} deserialization drawn from Urbit’s auxiliary \texttt{pynoun} library.\footnote{The original \texttt{pynoun} library was authored by Paul Driver \patp{fodwyt-ragful}.}
 
 \begin{lstlisting}[style=listingcode_python]
 from bitstring import BitArray
