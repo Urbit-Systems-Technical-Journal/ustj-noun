@@ -24,10 +24,10 @@
 \fancyhead{}
 \fancyfoot[L]{{\footnotesize
               %% We toggle between these:
-              Manuscript submitted for review.\\
-              % {\it Urbit Systems Technical Journal} II:2 (2025):  1–46. \\
+              % Manuscript submitted for review.\\
+              {\it Urbit Systems Technical Journal} III:1 (2026):  83–101. \\
               % ~ \\
-              % Address author correspondence to \authorpatp.
+              Address author correspondence to \patp{lagrev-nocfep}.
               }}
 }
 %  Arrange subsequent pages:
@@ -47,18 +47,18 @@
 \thispagestyle{firststyle}
 
 \begin{abstract}
-Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes the principal convention for representing a noun in compressed form as a byte array, as well as introduces variant encodings for educational purposes.
+Noun serialization is commonly used for Nock communication, both between instances like Urbit ships and with the runtime and the Unix host operating system.  This article describes the principal convention for representing a noun in compressed form as a byte array and its runtime affordance.
 \end{abstract}
 
 \renewcommand{\thefootnote}{\fnsymbol{footnote}}
 \setcounter{footnote}{0}
-\footnotetext[1]{\sloppy We gratefully acknowledge the original architect of \texttt{+jam} and \texttt{+cue}, \mbox{Curtis} Yarvin \patp{sorreg-namtyv}.  The original function, in \href{https://github.com/cgyarvin/urbit/blame/55f591594080d276fc446ceafa4afff092561613/watt/jam.watt}{\texttt{jam.watt}}, dates to \textasciitilde 2011.6.11.}
+\footnotetext[1]{\sloppy We gratefully acknowledge the original architect of \texttt{+jam} and \texttt{+cue}, \mbox{Curtis} Yarvin \patp{sorreg-namtyv}.  The earliest implementation, in \href{https://github.com/cgyarvin/urbit/blame/55f591594080d276fc446ceafa4afff092561613/watt/jam.watt}{\texttt{jam.watt}}, dates to \textasciitilde 2011.6.11; Yarvin has indicated that an earlier draft no longer survives.}
 \renewcommand{\thefootnote}{\arabic{footnote}}
 \setcounter{footnote}{0}
 
 % We will adjust page numbering in final editing.
 \pagenumbering{arabic}
-\setcounter{page}{1}
+\setcounter{page}{83}
 
 \tableofcontents
 
@@ -141,7 +141,7 @@ where $\bar{a}$ is the encoded atom $a$ and $a$ has length $\ell$ bits.\footnote
 \caption{Example atom encodings with length information appended as trailing zeros (unnamed encoding).}
 \label{tab:atom-encodings}
 \begin{tabular}{ l l r }
-  \textbf{Atom} $a$ & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bar{a}$} \\
+  \textbf{Atom} $\bm{a}$ & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bm{\bar{a}}$} \\
   \hline
   \texttt{0b0} & 1 & \texttt{0b1} \\
   \texttt{0b1} & 1 & \texttt{0b110} \\
@@ -151,8 +151,8 @@ where $\bar{a}$ is the encoded atom $a$ and $a$ has length $\ell$ bits.\footnote
   \texttt{0b111} & 3 & \texttt{0b1111000} \\
   \texttt{0x70} & 7 & \texttt{0b111000010000000} \\
   \texttt{0xff} & 8 & \texttt{0b11111111100000000} \\
-  \texttt{0x1234} & 15 & \texttt{0b100001100100001} \\
-  & & \texttt{↳1000000000000000} \\
+  \texttt{0x1234} & 13 & \texttt{0b1001000110100} \\
+  & & \texttt{↳10000000000000} \\
 \end{tabular}
 \end{table}
 
@@ -171,7 +171,7 @@ We can make one further optimization:  since the most significant bit (\textsc{m
 \caption{Example atom encodings (\texttt{+fat} encoding).  Elided digits are shown in light gray for clarity.}
 \label{tab:fat-encodings}
 \begin{tabular}{ l l r }
-  \textbf{Atom} $a$ & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bar{a}$} \\
+  \textbf{Atom} $\bm{a}$ & \textbf{Length (bits)} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bm{\bar{a}}$} \\
   \hline
   \texttt{0b0} & 1 & \texttt{0b1} \\
   \texttt{0b1} & 1 & \texttt{0b\textcolor{lightgray}{1}10} \\
@@ -181,12 +181,12 @@ We can make one further optimization:  since the most significant bit (\textsc{m
   \texttt{0b111} & 3 & \texttt{0b\textcolor{lightgray}{1}111000} \\
   \texttt{0x70} & 7 & \texttt{0b\textcolor{lightgray}{1}11000010000000} \\
   \texttt{0xff} & 8 & \texttt{0b\textcolor{lightgray}{1}1111111100000000} \\
-  \texttt{0x1234} & 15 & \texttt{0b\textcolor{lightgray}{10000}1100100001} \\
-  & & \texttt{↳1000000000000000} \\
+  \texttt{0x1234} & 13 & \texttt{0b\textcolor{lightgray}{100}1000110100} \\
+  & & \texttt{↳10000000000000} \\
 \end{tabular}
 \end{table}
 
-The primary problem with the \texttt{+fat} scheme is that the encoding of an atom is twice the bit length of the original atom.  The next optimization is to use the bit length of the bit length, which is logarithmic in the bit length.
+The primary problem with the \texttt{+fat} scheme is that the encoding of an atom is about twice the bit length of the original atom.  The next optimization is to use the bit length of the unary bit length, which is logarithmic in the bit length.
 
 $$
 a =
@@ -228,22 +228,24 @@ Some worked examples of \texttt{+mat} encoding are included in Table~\ref{tab:ma
 \centering
 \caption{Example atom encodings (\texttt{+mat} encoding).  The encoded form is the same result as \texttt{q:(mat a)} in Hoon.}
 \label{tab:mat-encodings}
-\begin{tabular}{ r c c r }
-  \multicolumn{1}{l}{\textbf{Atom}} $a$ & \textbf{Length (bits)} & \textbf{Mathematics} & \multicolumn{1}{l}{\textbf{Encoded Form} $\bar{a}$} \\
+\begin{tabular}{ r c r l r }
+  \multicolumn{1}{l}{\textbf{Atom}} $\bm{a}$ & \textbf{Length (bits)} & \multicolumn{2}{c}{\hspace{2cm}\textbf{Mathematics}} & \multicolumn{1}{c}{\textbf{Encoded Form} $\bm{\bar{a}}$} \\
   \hline
-  \texttt{0b0} & $\ell = 1$ & $\underbrace{\cancel{{a_{\ell-1}}}\ldots\cancel{a_{0}}}_{\ell=0}\mathtt{1}\underbrace{\cancel{\mathtt{0}}\ldots\cancel{\mathtt{0}}}_{h=0}$ & \texttt{0b1} \\
-  \texttt{0b1} & $\ell = 1$ & $\underbrace{\mathtt{1}}_{\ell=1}\underbrace{\cancel{{\ell_{h-2}}}\ldots\cancel{\ell_{0}}}_{h-1=0}\mathtt{1}\underbrace{\mathtt{0}}_{h=1}$ & \texttt{0b110} \\
-  \texttt{0b10} & $\ell = 2$ & $\underbrace{\mathtt{10}}_{a=2}\underbrace{\mathtt{0}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b100100} \\
-  \texttt{0b11} & $\ell = 2$ & $\underbrace{\mathtt{11}}_{a=3}\underbrace{\mathtt{0}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b110100} \\
-  \texttt{0b100} & $\ell = 3$ & $\underbrace{\mathtt{100}}_{a=4}\underbrace{\mathtt{1}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b1001100} \\
-  \texttt{0b101} & $\ell = 3$ & $\underbrace{\mathtt{101}}_{a=5}\underbrace{\mathtt{1}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b1011100} \\
-  \texttt{0b1111} & $\ell = 4$ & $\underbrace{\mathtt{1111}}_{a=15}\underbrace{\mathtt{00}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{000}}_{h=3}$ & \texttt{0b1111001000} \\
-  \texttt{0x70} & $\ell = 7$ & $\underbrace{\mathtt{1110000}}_{a=112}\underbrace{\mathtt{11}}_{\textrm{low bits of }\ell}\mathtt{1}\underbrace{\mathtt{000}}_{h=3}$ & \texttt{0b1110000111000} \\
+  \texttt{0b0} & $\ell = 1$ & $\underbrace{\cancel{{a_{\ell-1}}}\ldots\cancel{a_{0}}}_{\ell=0}$&$\mathtt{1}\underbrace{\cancel{\mathtt{0}}\ldots\cancel{\mathtt{0}}}_{h=0}$ & \texttt{0b1} \\
+  \texttt{0b1} & $\ell = 1$ & $\underbrace{\mathtt{1}}_{\ell=1}\underbrace{\cancel{{\ell_{h-2}}}\ldots\cancel{\ell_{0}}}_{h-1=0}$&$\mathtt{1}\underbrace{\mathtt{0}}_{h=1}$ & \texttt{0b110} \\
+  \texttt{0b10} & $\ell = 2$ & $\underbrace{\mathtt{10}}_{a=2}\underbrace{\mathtt{0}}_{\textrm{low bits of }\ell}$&$\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b100100} \\
+  \texttt{0b11} & $\ell = 2$ & $\underbrace{\mathtt{11}}_{a=3}\underbrace{\mathtt{0}}_{\textrm{low bits of }\ell}$&$\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b110100} \\
+  \texttt{0b100} & $\ell = 3$ & $\underbrace{\mathtt{100}}_{a=4}\underbrace{\mathtt{1}}_{\textrm{low bits of }\ell}$&$\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b1001100} \\
+  \texttt{0b101} & $\ell = 3$ & $\underbrace{\mathtt{101}}_{a=5}\underbrace{\mathtt{1}}_{\textrm{low bits of }\ell}$&$\mathtt{1}\underbrace{\mathtt{00}}_{h=2}$ & \texttt{0b1011100} \\
+  \texttt{0b1111} & $\ell = 4$ & $\underbrace{\mathtt{1111}}_{a=15}\underbrace{\mathtt{00}}_{\textrm{low bits of }\ell}$&$\mathtt{1}\underbrace{\mathtt{000}}_{h=3}$ & \texttt{0b1111001000} \\
+  \texttt{0x70} & $\ell = 7$ & $\underbrace{\mathtt{1110000}}_{a=112}\underbrace{\mathtt{11}}_{\textrm{low bits of }\ell}$&$\mathtt{1}\underbrace{\mathtt{000}}_{h=3}$ & \texttt{0b1110000111000} \\
+  \texttt{0x1234} & $\ell = 13$ & $\underbrace{\mathtt{1001000110100}}_{a=4660}\underbrace{\mathtt{101}}_{\textrm{low bits of }\ell}$&$\mathtt{1}\underbrace{\mathtt{0000}}_{h=4}$ & \texttt{0b100100011010010110000} \\
 \end{tabular}
 \end{table}
 \end{landscape}
 
-With \texttt{+mat} encoding in hand, we can produce a proper serialization scheme for nouns by combining the type bit with the encoded atom or recursively encoding cells.  We call this scheme \texttt{+gel} encoding.
+\sloppy
+With \texttt{+mat} encoding in hand, we can produce a proper \mbox{serialization} scheme for nouns by combining the type bit with the encoded atom or recursively encoding cells.  We call this scheme \texttt{+gel} encoding.
 
 As before, we use \texttt{0} for atom and \texttt{1} for cell.  If the noun is an atom, we follow the type bit with the \texttt{+mat} encoding of the atom.  If the noun is a cell, we follow the type bit with the \texttt{+gel} encoding of the head and then the \texttt{+gel} encoding of the tail.
 
@@ -332,8 +334,6 @@ We already have the \texttt{+mat} encodings from Table~\ref{tab:mat-encodings}; 
 \end{tabular}
 \end{table}
 
-TODO opposite of gel as goo
-
 Our code implementation for \texttt{+gel} is as follows:
 
 \begin{lstlisting}[style=listingcode]
@@ -370,7 +370,7 @@ Our code implementation for \texttt{+gel} is as follows:
 
 \section{Practical Serialization}
 
-Whatever the pedagogical advantages of \texttt{+gel}, the algorithm is still relatively verbose.  Nock-based operating functions have preferred in practice to use \texttt{+jam} encoding, which is a more compact run-length encoding with subtree deduplication.\footnote{Note the calculation of \patp{dozreg-toplud}, p.~TODO of this issue, that an operational Arvo instance may have up to $1.66 \times 10^{21}$ nouns, greatly reduced by structural sharing.}  \texttt{+jam} improves the basic strategy by altering the \textsc{rle} algorithm slightly and supporting internal references for noun subtrees that have already been encoded.
+Whatever the pedagogical advantages of \texttt{+gel}, the algorithm is still relatively verbose.  Nock-based operating functions have preferred in practice to use \texttt{+jam} encoding, which is a more compact run-length encoding with subtree deduplication.\footnote{Note the calculation of \patp{dozreg-toplud}, p.~57 of this issue, that an operational Arvo instance may have up to $1.66 \times 10^{21}$ nouns, greatly reduced by structural sharing.}  \texttt{+jam} improves the basic strategy by altering the \textsc{rle} algorithm slightly and supporting internal references for noun subtrees that have already been encoded.
 
 \texttt{+jam} converts a noun into a buffer and deduplicates repeated subtrees.  It walks subtrees and encodes each in a way that allows for efficient storage and retrieval, while also permitting references to previously encoded values.  Basically, it takes \texttt{+gel} and adds a ``caching mode'' flag; instead of repeating subtrees, encode the index in the full jammed noun to where the current node's jammed subnoun was first written.  Thus the code changes from \texttt{0} for atom and \texttt{1} for cell to:
 
@@ -523,7 +523,8 @@ Here is the reference implementation of \texttt{+jam} in Hoon:
   (cat 0 (bex c) (mix (end [0 (dec c)] b) (lsh [0 (dec c)] a)))
 \end{lstlisting}
 
-A Python implementation of \texttt{+jam} is included in Appendix~A.
+\sloppy
+A Python implementation of \texttt{+jam} is included in the \mbox{appendix}.
 
 Here is the reference implementation of \texttt{+cue} in Hoon:
 
@@ -565,7 +566,7 @@ Here is the reference implementation of \texttt{+cue} in Hoon:
   [(add (add c c) e) (cut 0 [(add d (dec c)) e] b)]
 \end{lstlisting}
 
-Likewise, a Python implementation of \texttt{+cue} is included in Appendix~A.
+Likewise, a Python implementation of \texttt{+cue} is included in the \mbox{appendix}.
 
 \subsection{\texttt{newt} Encoding}
 
@@ -582,22 +583,72 @@ where \texttt{V} is the version number, \texttt{L} is the total length of the no
 Runtime communications vanes like \texttt{\%khan} and \texttt{\%lick} utilize this encoding locally.  It is exclusively used as a host OS runtime affordance at the current time.
 
 
-\section{Aligned Serialization}
+% \section{Aligned Serialization}
 
-One of the advantages of \texttt{+jam} is its compactness.  However, this comes at the cost of speed, since bit-level operations are required to \texttt{+cue} the noun back from its serialized form.  If a slightly larger size is acceptable, a byte-aligned serialization could facilitate certain kinds of external inspection without requiring deserialization.  (For instance, a byte-aligned head tag could be read for a rapid decision without needing to \texttt{+cue} the entire noun.)
+% One of the advantages of \texttt{+jam} is its compactness.  However, this comes at the cost of decoding speed, since bit-level operations are required to \texttt{+cue} the noun back from its serialized form.  If a larger size is acceptable, a byte-aligned serialization could facilitate certain kinds of external inspection without requiring any deserialization at all.  For instance, a byte-aligned head tag could be read for a rapid decision without needing to \texttt{+cue} the entire noun.  Byte-aligned values are straightforward for systems languages like C (Vere) and Rust (NockVM) to examine and manipulate efficiently, so there is some theoretical attraction to preferring them.
 
-We propose a strategy to modify \texttt{+jam} to align to bytes by padding the length of entries to the nearest byte boundary and marking the distance with a clever binary scheme rather than simply unary.  This approach, called \texttt{+honey}, aims to balance compactness and speed for certain use cases while retaining a large degree of conceptual backwards compatibility.  (The change in byte alignment of course breaks strict compatibility.)
+% We propose a strategy to modify \texttt{+jam} to align to bytes by padding the length of entries to the nearest byte boundary and marking the distance with a clever binary scheme rather than simply unary.  This approach, called \texttt{+honey}, aims to balance compactness and speed for certain use cases while retaining a large degree of conceptual backwards compatibility.  (The change in byte alignment of course breaks strict compatibility.)
 
-There are two fundamental issues for byte alignment:  atoms and lengths.  Atoms can be padded with leading zeros to the nearest byte boundary without changing their value.  Lengths, however, require a new encoding scheme to compensate for the adjustment in expected bit widths.  %We propose a variable-length encoding for lengths that uses the high bit of each byte to indicate whether more bytes follow.  The remaining seven bits of each byte contribute to the length value.  This allows for efficient representation of lengths while maintaining byte alignment.
+% As outlined above, there are two fundamental issues for serialization:  types and lengths.  Atoms can be padded with leading zeros to the nearest byte boundary without changing their value.  Lengths, however, require a tweak to their encoding scheme to compensate for the adjustment in expected bit widths.  %We propose a variable-length encoding for lengths that uses the high bit of each byte to indicate whether more bytes follow.  The remaining seven bits of each byte contribute to the length value.  This allows for efficient representation of lengths while maintaining byte alignment.
+
+% \paragraph*{\texttt{+honey} Serialization Algorithm}
+% \begin{itemize}
+% \item  \textbf{Encode}.
+%   \begin{itemize}
+%     \item  If the noun is an atom, write \texttt{0} followed by the \texttt{+mat} encoding of the atom, padded to the nearest byte boundary.
+%     \item  If the noun is a cell, check if it has been previously encoded.
+%       \begin{itemize}
+%         \item  If it has, write \texttt{11} followed by the byte-aligned encoding of the index where it was first encoded.
+%         \item  If it has not, write \texttt{01} followed by the \texttt{+honey} encoding of the head and then the \texttt{+honey} encoding of the tail.  Store the current index for future reference.
+%       \end{itemize}
+%   \end{itemize}
+% \item  \textbf{Decode}.  Read the first byte.
+%   \begin{itemize}
+%     \item  If it is \texttt{0}, read the next bytes as a \texttt{+mat} encoded atom, removing any padding.
+%     \item  If it is \texttt{1}, read the next byte.
+%       \begin{itemize}
+%         \item  If it is \texttt{0}, recursively read the next bytes as the head and then the tail.
+%         \item  If it is \texttt{1}, read the next bytes as a byte-aligned encoded index and retrieve the cached subtree.
+%       \end{itemize}
+%   \end{itemize}
+% \end{itemize}
+
+% A \texttt{+honey}-encoded noun has the following structure:
+
+% \begin{lstlisting}[style=listingcode]
+%   T.LLLL.HHHH.HHHH.HHHH.HHHH.HHHH.HHHH...
+% \end{lstlisting}
+
+% \noindent
+% where blah blah blah.  Examples of \texttt{+honey} encodings are given in Table~\ref{tab:honey-encodings}.
+
+% \begin{table}[ht]
+% \centering
+% \caption{Example noun encodings (\texttt{+honey} encoding).  \texttt{.} dot delimits byte fields for readability.  The atom \texttt{\%head} is a text tag encoded as \texttt{0x68.0x65.0x61.0x64} in \textsc{ascii}.}
+% \label{tab:honey-encodings}
+% \begin{tabular}{ r r }
+%   \multicolumn{1}{l}{\textbf{Noun}} & \multicolumn{1}{l}{\textbf{Encoded Form}} \\
+%   \hline
+%   \texttt{[0 0]} & \texttt{0x00.0x01.0x00.0x01} \\
+%   \texttt{[1 0]} & \texttt{0x00.0x06.0x00.0x01} \\
+%   \texttt{[2 1 0]} & \texttt{0x00.0x06.0x00.0x01.0x04.0x01} \\
+%   \texttt{[[2 3] 1 0]} & \texttt{0x00.0x0C.0x00.0x01.0x06.0x04.0x01.0x01} \\
+%   \texttt{[\%head 42]} & \texttt{...} \\
+% \end{tabular}
+% \end{table}
+
+% This scheme allows for efficient byte-aligned serialization and deserialization of nouns while retaining the benefits of subtree deduplication from \texttt{+jam}.  Whether \texttt{+honey} or a similar byte-aligned scheme is practical for runtime use remains to be seen.
 
 \section{Conclusion}
 
-\tombstone
+Noun serialization is a fundamental aspect of Urbit's architecture, enabling efficient communication of untyped data structures.  Starting from basic run-length encoding, we have explored progressively more sophisticated schemes culminating in \texttt{+jam}, which balances compactness and efficiency through subtree deduplication.  Further extensions like \texttt{newt}
+%and \texttt{+honey}
+illustrate the adaptability of serialization strategies to meet evolving runtime requirements.  As Nock-based solid-state computing continues to evolve, noun serialization will remain an important foundation for data interchange and persistence.\tombstone
 
 \selectlanguage{USenglish}
 % \printbibliography
 
-\section*{Appendix A:  Python \texttt{+jam}/\texttt{+cue}}
+\section*{Appendix:  Python \texttt{+jam}/\texttt{+cue}}
 \subsection*{Paul Driver \patp{fodwyt-ragful}}
 
 The following is a simple Python implementation of \texttt{+jam} serialization and \texttt{+cue} deserialization drawn from Urbit’s auxiliary \texttt{pynoun} library.\footnote{The original \texttt{pynoun} library was authored by Paul Driver \patp{fodwyt-ragful}.}
@@ -606,10 +657,8 @@ The following is a simple Python implementation of \texttt{+jam} serialization a
 from bitstring import BitArray
 noun = int | Cell
 # The Cell class represents an ordered pair of two nouns.
-
 def jam_to_stream(n: noun, out: BitArray):
     """jam but put the bits into a stream
-
     >>> s = BitArray()
     >>> jam_to_stream(Cell(0,0), s)
     >>> s
@@ -638,7 +687,6 @@ def jam_to_stream(n: noun, out: BitArray):
 
     def save(a: noun):
         refs[a] = cur
-
     def mat(i: int):
         if 0 == i:
             one()
@@ -701,7 +749,6 @@ def jam(n: noun):
 
 def cue_from_stream(s: BitArray):
     """cue but read the bits from a stream
-
     >>> s = BitArray('0b01')
     >>> cue_from_stream(s)
     0
