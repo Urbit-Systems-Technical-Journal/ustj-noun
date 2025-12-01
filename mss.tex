@@ -223,6 +223,22 @@ where $\ell$ is the bit length of $a$ and $h$ is the ``hyper bit length'' of $a$
 
 Some worked examples of \texttt{+mat} encoding are included in Table~\ref{tab:mat-encodings}.
 
+The reference implementation of \texttt{+mat} encoding in Hoon is as follows:
+
+\begin{lstlisting}[style=listingcode]
+++  mat
+  ~/  %mat
+  |=  a=@
+  ^-  [p=@ q=@]
+  ?:  =(0 a)
+    [1 1]
+  =+  b=(met 0 a)
+  =+  c=(met 0 b)
+  :-  (add (add c c) b)
+  (cat 0 (bex c) (mix (end [0 (dec c)] b)
+   ↳                  (lsh [0 (dec c)] a)))
+\end{lstlisting}
+
 \begin{landscape}
 \begin{table}[ht]
 \centering
@@ -327,46 +343,36 @@ We already have the \texttt{+mat} encodings from Table~\ref{tab:mat-encodings}; 
 \begin{tabular}{ r r }
   \multicolumn{1}{l}{\textbf{Noun}} & \multicolumn{1}{l}{\textbf{Encoded Form}} \\
   \hline
+  \texttt{0} & \texttt{0b0.1.0} \\
   \texttt{[0 0]} & \texttt{0b1.0.1.0.1} \\
-  \texttt{[1 0]} & \texttt{0b110.0.1.0.1} \\
-  \texttt{[2 1 0]} & \texttt{0b110.0.1.0.1.100100.0.1} \\
-  \texttt{[[2 3] 1 0]} & \texttt{0b110.0.1.0.1.110100.0.100100.0.1.1} \\
+  \texttt{[1 0]} & \texttt{0b1.0.110.0.1} \\
+  \texttt{[2 1 0]} & \texttt{0b1.0.110.0.1.100100.0.1} \\
+  \texttt{[[2 3] 1 0]} & \texttt{0b1.0.110.0.1.110100.0.100100.0.1.1} \\
 \end{tabular}
 \end{table}
 
-Our code implementation for \texttt{+gel} is as follows:
+\newpage
+Our code implementation for \texttt{+gel} encoding is as follows:
 
 \begin{lstlisting}[style=listingcode]
-!:  |%
 ++  gel
-  =gel !:  |=  a=*
+  |=  a=*
   ^-  @
-  =+  l=0
   =+  b=0
-  =<  -
-  |-
-  ?^  a
-    =+  lv=$(a -.a)
-    =+  rv=$(a +.a)
-    =+  [c l]=(mash rv lv)
-    [(con (lsh [0 1] c) 0b1) +(l)]
-  ?:  =(0 a)  [0b10 4]
-  :: need another mash in here for unary length
-  =+  [c l]=(mash [a l] [b +((met 0 b))])
-  [(con (lsh [0 1] c) 0b0) +(l)]
-:: length of atom in unary
-++  len
-  |=  a=@
-  ^-  @
-  (fil 0 (met 0 a) 0b1)
-:: mash two atoms together
-++  mash
-  |=  [a=[p=@ l=@] b=[p=@ l=@]]
-  ^-  [c=@ l=@]
-  :-  (con (lsh [0 l.b] p.a) p.b)
-  (add l.a l.b)
---
+  =<  q
+  |-  ^-  [p=@ q=@]
+  ?:  ?=(@ a)
+    =+  d=(mat a)
+    [(add 1 p.d) (lsh 0 q.d)]
+  =>  .(b (add 1 b))
+  =+  d=$(a -.a)
+  =+  e=$(a +.a, b (add b p.d))
+  :-  (add 1 (add p.d p.e))
+  (mix 1 (lsh [0 1] (cat 0 q.d q.e)))
 \end{lstlisting}
+
+\noindent
+Decoding is left as an exercise to the interested reader.
 
 \section{Practical Serialization}
 
@@ -510,17 +516,6 @@ Here is the reference implementation of \texttt{+jam} in Hoon:
     [(add 1 p.d) (lsh 0 q.d) m]
   =+  d=(mat u.c)
   [(add 2 p.d) (mix 3 (lsh [0 2] q.d)) m]
-::  length encode
-++  mat
-  ~/  %mat
-  |=  a=@
-  ^-  [p=@ q=@]
-  ?:  =(0 a)
-    [1 1]
-  =+  b=(met 0 a)
-  =+  c=(met 0 b)
-  :-  (add (add c c) b)
-  (cat 0 (bex c) (mix (end [0 (dec c)] b) (lsh [0 (dec c)] a)))
 \end{lstlisting}
 
 \sloppy
